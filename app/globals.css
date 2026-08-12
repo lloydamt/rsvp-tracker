@@ -13,6 +13,36 @@ h1,h2,h3,p { margin-top:0; } h1 { font-family:Georgia,serif; font-size:clamp(1.8
 .moreInfoLink { display:inline-flex; align-items:center; gap:8px; color:var(--accent); font-weight:800; text-underline-offset:4px; }
 .moreInfoLink:hover { text-decoration-thickness:2px; }
 .eyebrow { color:var(--accent); font-size:.68rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+
+/* Home page */
+.homePage { position:relative; isolation:isolate; overflow:hidden; padding:clamp(18px,4vw,52px); }
+.homePage::before,.homePage::after { content:""; position:absolute; z-index:-1; width:clamp(220px,32vw,460px); aspect-ratio:1; border:1px solid rgba(163,75,55,.12); border-radius:50%; }
+.homePage::before { top:-18%; left:-12%; box-shadow:0 0 0 30px rgba(255,253,249,.18),0 0 0 60px rgba(163,75,55,.035); }
+.homePage::after { right:-14%; bottom:-24%; box-shadow:0 0 0 30px rgba(255,253,249,.16),0 0 0 60px rgba(71,118,61,.035); }
+.homePage .welcomeHero { width:min(760px,100%); max-width:760px; min-height:min(760px,calc(100vh - clamp(36px,8vw,104px))); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:clamp(46px,8vw,88px) clamp(24px,8vw,84px); border-color:rgba(201,185,169,.72); border-radius:clamp(24px,4vw,38px); background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(255,252,247,.96)); box-shadow:0 28px 80px rgba(72,53,35,.12),inset 0 1px rgba(255,255,255,.9); }
+.homePage .welcomeHero::before { content:""; position:absolute; inset:12px; pointer-events:none; border:1px solid rgba(163,75,55,.1); border-radius:calc(clamp(24px,4vw,38px) - 10px); }
+.heroOrnament { display:flex; align-items:center; gap:12px; width:min(190px,46%); margin-bottom:clamp(28px,5vw,46px); color:var(--accent); }
+.heroOrnament span { height:1px; flex:1; background:linear-gradient(90deg,transparent,rgba(163,75,55,.55)); }
+.heroOrnament span:last-child { background:linear-gradient(90deg,rgba(163,75,55,.55),transparent); }
+.heroOrnament i { font-family:Georgia,serif; font-size:.8rem; font-style:normal; }
+.homePage .coupleNames { display:flex; flex-direction:column; align-items:center; margin:0 0 clamp(28px,5vw,42px); font-size:clamp(4rem,11vw,7.8rem); line-height:.72; letter-spacing:-.055em; text-wrap:balance; }
+.homePage .coupleNames > span { display:block; }
+.homePage .coupleNames .ampersand { margin:.27em 0 .24em; color:var(--accent); font-family:Georgia,serif; font-size:.36em; font-style:italic; line-height:1; letter-spacing:0; }
+.homePage .welcomeMessage { position:relative; max-width:470px; margin:0 auto clamp(28px,5vw,38px); color:#6e675f; font-family:Georgia,serif; font-size:clamp(1.05rem,2.2vw,1.28rem); line-height:1.65; }
+.homeInfoLink { position:relative; display:inline-flex; min-height:50px; align-items:center; gap:12px; padding:13px 17px 13px 21px; border:1px solid rgba(163,75,55,.32); border-radius:999px; background:rgba(255,255,255,.62); text-decoration:none; transition:border-color .2s ease,background .2s ease,box-shadow .2s ease,transform .2s ease; }
+.homeInfoLink .linkArrow { display:grid; width:28px; height:28px; place-items:center; border-radius:50%; background:var(--accent); color:#fff; font-size:.82rem; transition:transform .2s ease; }
+.homeInfoLink:hover { border-color:var(--accent); background:#fff; box-shadow:0 9px 24px rgba(163,75,55,.13); transform:translateY(-2px); }
+.homeInfoLink:hover .linkArrow { transform:translate(2px,-2px); }
+.homeInfoLink:focus-visible { outline:3px solid rgba(163,75,55,.22); outline-offset:4px; }
+
+@media (max-width:560px) {
+  .homePage { align-items:stretch; padding:0; }
+  .homePage .welcomeHero { width:100%; min-height:100svh; padding:48px 22px; border:0; border-radius:0; box-shadow:none; }
+  .homePage .welcomeHero::before { inset:12px; border-radius:20px; }
+  .heroOrnament { margin-bottom:36px; }
+  .homePage .coupleNames { margin-bottom:32px; font-size:clamp(4.2rem,24vw,6.4rem); }
+  .homePage .welcomeMessage { max-width:330px; font-size:1.05rem; }
+}
 .button,button { display:inline-block; border:0; border-radius:999px; background:var(--accent); color:white; padding:12px 20px; font:inherit; font-weight:700; text-decoration:none; cursor:pointer; }
 button.secondary { background:transparent; border:1px solid var(--line); color:var(--ink); white-space:nowrap; }
 button.danger { background:transparent; border:1px solid #d9aaa1; color:#9b3525; white-space:nowrap; }

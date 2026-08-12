@@ -1,12 +1,27 @@
 export default function Home() {
+  const informationUrl = process.env.CEREMONY_RECEPTION_INFO_URL;
+
+  if (!informationUrl) {
+    throw new Error("CEREMONY_RECEPTION_INFO_URL is missing.");
+  }
+
   return (
-    <main className="centered">
+    <main className="centered homePage">
       <section className="card hero welcomeHero">
-        <p className="eyebrow">Welcome</p>
-        <h1 className="coupleNames">Tadiwa &amp; Adawari</h1>
+        <div className="heroOrnament" aria-hidden="true">
+          <span />
+          <i>◇</i>
+          <span />
+        </div>
+        <h1 className="coupleNames" aria-label="Tadiwa and Adawari">
+          <span>Tadiwa</span>
+          <span className="ampersand">&amp;</span>
+          <span>Adawari</span>
+        </h1>
         <p className="welcomeMessage">We’re so happy you’re here and can’t wait to celebrate with you.</p>
-        <a className="moreInfoLink" href="https://www.google.com" target="_blank" rel="noopener noreferrer">
-          Click here for more info <span aria-hidden="true">↗</span>
+        <a className="moreInfoLink homeInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">
+          <span>Discover the celebration</span>
+          <span className="linkArrow" aria-hidden="true">↗</span>
         </a>
       </section>
     </main>

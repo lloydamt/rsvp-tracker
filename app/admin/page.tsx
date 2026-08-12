@@ -67,9 +67,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     reception_only: guests.filter((guest) => guest.invitation_category === "reception_only").length,
   };
   const visibleGuests = guests.filter((guest) => (!activeStatus || guest.status === activeStatus) && (!activeCategory || guest.invitation_category === activeCategory));
-  const previewSuffix = isPreview ? "&preview=300" : "";
-  const categorySuffix = activeCategory ? `&category=${activeCategory}` : "";
-  const statusSuffix = activeStatus ? `&status=${activeStatus}` : "";
+  const filterHref = ({ status, category }: { status?: typeof activeStatus; category?: typeof activeCategory }) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (category) params.set("category", category);
+    if (isPreview) params.set("preview", "300");
+    return params.size > 0 ? `/admin?${params.toString()}` : "/admin";
+  };
 
   return (
     <main className="container">
@@ -80,38 +84,48 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       {isPreview && <div className="previewBanner"><span><strong>Preview mode:</strong> 300 generated guests. Nothing here is stored in the database.</span><Link href="/admin">Exit preview</Link></div>}
 
-      <section className="responseOverview" aria-label="Filter guests by RSVP response">
-        <Link className={`responseStat attending ${activeStatus === "attending" ? "active" : ""}`} href={`/admin?status=attending${categorySuffix}${previewSuffix}`} aria-current={activeStatus === "attending" ? "page" : undefined}>
-          <strong>{counts.attending}</strong><span>Attending</span>
-        </Link>
-        <Link className={`responseStat pending ${activeStatus === "pending" ? "active" : ""}`} href={`/admin?status=pending${categorySuffix}${previewSuffix}`} aria-current={activeStatus === "pending" ? "page" : undefined}>
-          <strong>{counts.pending}</strong><span>Not responded</span>
-        </Link>
-        <Link className={`responseStat declined ${activeStatus === "declined" ? "active" : ""}`} href={`/admin?status=declined${categorySuffix}${previewSuffix}`} aria-current={activeStatus === "declined" ? "page" : undefined}>
-          <strong>{counts.declined}</strong><span>Not attending</span>
-        </Link>
+      <section className="guestFilters" aria-label="Filter guests">
+        <div className="responseOverview" aria-label="Filter guests by RSVP response">
+          <Link className={`responseStat attending ${activeStatus === "attending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "attending" ? undefined : "attending", category: activeCategory })} aria-current={activeStatus === "attending" ? "page" : undefined}>
+            <strong>{counts.attending}</strong><span>Attending</span>
+          </Link>
+          <Link className={`responseStat pending ${activeStatus === "pending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "pending" ? undefined : "pending", category: activeCategory })} aria-current={activeStatus === "pending" ? "page" : undefined}>
+            <strong>{counts.pending}</strong><span>Awaiting reply</span>
+          </Link>
+          <Link className={`responseStat declined ${activeStatus === "declined" ? "active" : ""}`} href={filterHref({ status: activeStatus === "declined" ? undefined : "declined", category: activeCategory })} aria-current={activeStatus === "declined" ? "page" : undefined}>
+            <strong>{counts.declined}</strong><span>Declined</span>
+          </Link>
+        </div>
+
+        <div className="categoryOverview" aria-label="Filter guests by invitation category">
+          <span className="filterLabel">Invitation</span>
+          <Link className={`categoryStat fullDay ${activeCategory === "ceremony_reception" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "ceremony_reception" ? undefined : "ceremony_reception" })}>
+            Ceremony &amp; reception <strong>{categoryCounts.ceremony_reception}</strong>
+          </Link>
+          <Link className={`categoryStat receptionOnly ${activeCategory === "reception_only" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "reception_only" ? undefined : "reception_only" })}>
+            Reception only <strong>{categoryCounts.reception_only}</strong>
+          </Link>
+        </div>
       </section>
 
-      <section className="categoryOverview" aria-label="Filter guests by invitation category">
-        <Link className={`categoryStat fullDay ${activeCategory === "ceremony_reception" ? "active" : ""}`} href={`/admin?category=ceremony_reception${statusSuffix}${previewSuffix}`}>
-          <strong>{categoryCounts.ceremony_reception}</strong><span>Ceremony &amp; reception</span>
-        </Link>
-        <Link className={`categoryStat receptionOnly ${activeCategory === "reception_only" ? "active" : ""}`} href={`/admin?category=reception_only${statusSuffix}${previewSuffix}`}>
-          <strong>{categoryCounts.reception_only}</strong><span>Reception only</span>
-        </Link>
-      </section>
-
-      {(activeStatus || activeCategory) && <div className="filterBar"><span>Showing filtered guests</span><Link href={isPreview ? "/admin?preview=300" : "/admin"}>Clear filters</Link></div>}
-
-      {!isPreview && <section className="card">
-        <h2>Add a guest</h2>
+      {!isPreview && <details className="addGuestPanel">
+        <summary>
+          <span className="addIcon" aria-hidden="true">+</span>
+          <span><strong>Add a guest</strong><small>Enter their contact and invitation details</small></span>
+          <span className="addGuestCta">Add guest</span>
+        </summary>
         <form action={addGuest} className="inlineForm">
           <label>Name<input name="name" required maxLength={100} placeholder="Ada Lovelace" /></label>
-          <label>Phone<input name="phone" required inputMode="tel" autoComplete="tel" placeholder="07700900123 or +447700900123" /></label>
+          <label>Phone<input name="phone" required inputMode="tel" autoComplete="tel" placeholder="07700 900123" /></label>
           <label>Invitation<select name="invitation_category" required defaultValue="ceremony_reception"><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
-          <button type="submit">Add guest</button>
+          <button type="submit">Save guest</button>
         </form>
-      </section>}
+      </details>}
+
+      <div className="listHeading">
+        <div><h2>Guests</h2><span>{visibleGuests.length} shown</span></div>
+        {(activeStatus || activeCategory) && <Link href={filterHref({})}>Clear filters</Link>}
+      </div>
 
       {!isPreview && visibleGuests.length > 0 && <BulkActions groups={groups} />}
 
@@ -124,12 +138,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" aria-label={`Select ${guest.name}`} />}
               <span className="guestIdentity"><strong>{guest.name}</strong><span>{guest.phone}</span></span>
               <span className="guestResponse">
-              <span className={`badge ${guest.status}`}>{guest.status === "pending" ? "Not responded" : guest.status === "declined" ? "Not attending" : "Attending"}</span>
-              {guest.status === "attending" && <span className="muted"> · party of {guest.party_size}</span>}
-              <span className={`invitationBadge ${guest.invitation_category}`}>{guest.invitation_category === "ceremony_reception" ? "Ceremony + reception" : "Reception only"}</span>
-              {guest.group_id && <span className="groupBadge">{groupNames.get(guest.group_id) ?? "Group"}</span>}
+                <span className={`statusLabel ${guest.status}`}><i aria-hidden="true" />{guest.status === "pending" ? "Awaiting reply" : guest.status === "declined" ? "Declined" : "Attending"}</span>
+                <span className="guestMeta">
+                  {guest.invitation_category === "ceremony_reception" ? "Ceremony & reception" : "Reception only"}
+                  {guest.status === "attending" && <> · Party of {guest.party_size}</>}
+                  {guest.group_id && <> · {groupNames.get(guest.group_id) ?? "Group"}</>}
+                </span>
               </span>
-              <span className="expandHint">{isPreview ? "View" : "Manage"}</span>
             </summary>
             <div className="guestDetails">
               {isPreview && <p className="previewDetail">Generated preview guest — management actions are disabled.</p>}

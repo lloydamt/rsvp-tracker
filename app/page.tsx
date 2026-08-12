@@ -18,6 +18,14 @@ export default function Home() {
           <span className="ampersand">&amp;</span>
           <span>Adawari</span>
         </h1>
+        <div className="saveTheDate">
+          <span className="dateRule" aria-hidden="true" />
+          <p>
+            <span>Save the date</span>
+            <time dateTime="2026-10-24">October 24th, 2026</time>
+          </p>
+          <span className="dateRule" aria-hidden="true" />
+        </div>
         <p className="welcomeMessage">We’re so happy you’re here and can’t wait to celebrate with you.</p>
         <a className="moreInfoLink homeInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">
           <span>Discover the celebration</span>

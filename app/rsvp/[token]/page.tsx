@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { submitRsvp } from "@/app/actions";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import { GroupRsvpForm } from "./group-rsvp-form";
+import { IndividualRsvpForm } from "./individual-rsvp-form";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,6 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
   if (error) throw new Error(`Unable to load this invitation: ${error.message}`);
   if (!data) notFound();
   const guest = data as Pick<Guest, "id" | "name" | "status" | "party_size" | "notes" | "group_id" | "invitation_category">;
-  const action = submitRsvp.bind(null, invitationToken);
   const informationUrl = categoryInfoUrl(guest.invitation_category);
   const invitationLabel = guest.invitation_category === "ceremony_reception" ? "Ceremony & reception" : "Reception only";
 
@@ -46,10 +45,11 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
     return (
       <main className="centered">
         <section className="card rsvpCard">
-          <p className="eyebrow">{invitationLabel} · Group invitation</p>
-          <h1>Hello, {guest.name}</h1>
-          <p>You can respond for yourself, selected people, or your whole group.</p>
-          <div className="groupRoster">{orderedMembers.map((member) => <span key={member.id}>{member.name}</span>)}</div>
+          <div className="rsvpIntro">
+            <p className="eyebrow">{invitationLabel} · Group invitation</p>
+            <h1>Hello, {guest.name}</h1>
+            <p>You can respond for yourself, selected people, or your whole group.</p>
+          </div>
           {saved === "1" && <p className="success">Thanks — the selected responses have been saved.</p>}
           <GroupRsvpForm
             token={invitationToken}
@@ -58,8 +58,10 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
             initialNotes={guest.notes}
             members={orderedMembers}
           />
-          <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
-          <p className="privacy">This private link shows only the people in your group.</p>
+          <footer className="rsvpFooter">
+            <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
+            <p className="privacy"><span aria-hidden="true">◇</span> This private link shows only the people in your group.</p>
+          </footer>
         </section>
       </main>
     );
@@ -68,22 +70,17 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
   return (
     <main className="centered">
       <section className="card rsvpCard">
-        <p className="eyebrow">{invitationLabel}</p>
-        <h1>Hello, {guest.name}</h1>
-        <p>Please let us know whether you’ll be joining us.</p>
+        <div className="rsvpIntro">
+          <p className="eyebrow">{invitationLabel}</p>
+          <h1>Hello, {guest.name}</h1>
+          <p>Please let us know whether you’ll be joining us.</p>
+        </div>
         {saved === "1" && <p className="success">Thanks — your RSVP has been saved.</p>}
-        <form action={action} className="rsvpForm">
-          <fieldset>
-            <legend>Your response</legend>
-            <label className="choice"><input type="radio" name="status" value="attending" required defaultChecked={guest.status === "attending"} /> Joyfully attending</label>
-            <label className="choice"><input type="radio" name="status" value="declined" required defaultChecked={guest.status === "declined"} /> Unable to attend</label>
-          </fieldset>
-          <label>Number attending<input type="number" name="party_size" min="1" max="20" defaultValue={guest.party_size || 1} required /></label>
-          <label>Note (optional)<textarea name="notes" maxLength={500} defaultValue={guest.notes ?? ""} placeholder="Dietary needs or a message…" /></label>
-          <button type="submit">Save RSVP</button>
-        </form>
-        <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
-        <p className="privacy">This private link shows only your invitation and response.</p>
+        <IndividualRsvpForm token={invitationToken} initialStatus={guest.status} initialNotes={guest.notes} />
+        <footer className="rsvpFooter">
+          <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
+          <p className="privacy"><span aria-hidden="true">◇</span> This private link shows only your invitation and response.</p>
+        </footer>
       </section>
     </main>
   );

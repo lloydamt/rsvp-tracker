@@ -23,16 +23,20 @@ export function GroupRsvpForm({
 
   return (
     <form action={action} className="rsvpForm">
-      <fieldset>
+      <fieldset className="rsvpSection">
         <legend>Your response</legend>
-        <label className="choice"><input type="radio" name="status" value="attending" required defaultChecked={ownerStatus === "attending"} /> Attending</label>
-        <label className="choice"><input type="radio" name="status" value="declined" required defaultChecked={ownerStatus === "declined"} /> Not attending</label>
+        <div className="choiceGrid twoChoices">
+          <label className="choice"><input type="radio" name="status" value="attending" required defaultChecked={ownerStatus === "attending"} /><span>Attending<small>I’ll be there</small></span></label>
+          <label className="choice"><input type="radio" name="status" value="declined" required defaultChecked={ownerStatus === "declined"} /><span>Not attending<small>I can’t make it</small></span></label>
+        </div>
       </fieldset>
-      <fieldset>
+      <fieldset className="rsvpSection">
         <legend>Who are you responding for?</legend>
-        <label className="choice"><input type="radio" name="scope" value="self" checked={scope === "self"} onChange={() => setScope("self")} /> Myself only</label>
-        <label className="choice"><input type="radio" name="scope" value="selected" checked={scope === "selected"} onChange={() => setScope("selected")} /> Selected people</label>
-        <label className="choice"><input type="radio" name="scope" value="group" checked={scope === "group"} onChange={() => setScope("group")} /> Everyone in the group</label>
+        <div className="choiceGrid">
+          <label className="choice"><input type="radio" name="scope" value="self" checked={scope === "self"} onChange={() => setScope("self")} /><span>Myself only<small>Update only my response</small></span></label>
+          <label className="choice"><input type="radio" name="scope" value="selected" checked={scope === "selected"} onChange={() => setScope("selected")} /><span>Selected people<small>Choose specific group members</small></span></label>
+          <label className="choice"><input type="radio" name="scope" value="group" checked={scope === "group"} onChange={() => setScope("group")} /><span>Everyone in the group<small>Apply this response to the whole group</small></span></label>
+        </div>
       </fieldset>
       {scope === "selected" && (
         <fieldset className="memberPicker">
@@ -45,8 +49,8 @@ export function GroupRsvpForm({
           ))}
         </fieldset>
       )}
-      <label>Note (optional)<textarea name="notes" maxLength={500} defaultValue={initialNotes ?? ""} placeholder="Dietary needs or a message…" /></label>
-      <button type="submit">Save RSVP</button>
+      <label className="noteField">Note <span>(optional)</span><textarea name="notes" maxLength={500} defaultValue={initialNotes ?? ""} placeholder="Dietary needs or a message…" /></label>
+      <button className="saveRsvpButton" type="submit">Save RSVP</button>
     </form>
   );
 }

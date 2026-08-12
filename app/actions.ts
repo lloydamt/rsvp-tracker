@@ -23,19 +23,79 @@ function cleanInvitationCategory(value: FormDataEntryValue | null): InvitationCa
   throw new Error("Choose an invitation category.");
 }
 
+function cleanGroupName(value: FormDataEntryValue | null) {
+  const name = String(value ?? "").trim();
+  if (!name || name.length > 100) throw new Error("Enter a group name under 100 characters.");
+  return name;
+}
+
+function groupErrorMessage(error: { code?: string; message: string }) {
+  return error.code === "23505" ? "A group with that name already exists." : error.message;
+}
+
 export async function addGuest(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const phone = cleanPhone(formData.get("phone"));
   const invitationCategory = cleanInvitationCategory(formData.get("invitation_category"));
+  const groupMode = String(formData.get("group_mode") ?? "none");
   if (!name || name.length > 100) throw new Error("Enter a guest name under 100 characters.");
 
-  const { error } = await getSupabaseAdmin().from("guests").insert({
+  const supabase = getSupabaseAdmin();
+  let groupId: string | null = null;
+  let createdGroupId: string | null = null;
+
+  if (groupMode === "existing") {
+    const requestedGroupId = String(formData.get("existing_group_id") ?? "");
+    if (!requestedGroupId) throw new Error("Choose an existing group.");
+    const { data: group, error } = await supabase.from("guest_groups").select("id").eq("id", requestedGroupId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!group) throw new Error("The selected group no longer exists.");
+    groupId = group.id;
+  } else if (groupMode === "new") {
+    const groupName = cleanGroupName(formData.get("new_group_name"));
+    const { data: group, error } = await supabase.from("guest_groups").insert({ name: groupName }).select("id").single();
+    if (error) throw new Error(groupErrorMessage(error));
+    groupId = group.id;
+    createdGroupId = group.id;
+  } else if (groupMode !== "none") {
+    throw new Error("Choose a valid group option.");
+  }
+
+  const { error } = await supabase.from("guests").insert({
     name,
     phone,
     invitation_category: invitationCategory,
+    group_id: groupId,
     token: randomBytes(32).toString("base64url"),
   });
+  if (error && createdGroupId) await supabase.from("guest_groups").delete().eq("id", createdGroupId);
   if (error) throw new Error(error.code === "23505" ? "That phone number is already in the guest list." : error.message);
+  revalidatePath("/admin");
+}
+
+export async function createGroup(formData: FormData) {
+  const name = cleanGroupName(formData.get("name"));
+  const { error } = await getSupabaseAdmin().from("guest_groups").insert({ name });
+  if (error) throw new Error(groupErrorMessage(error));
+  revalidatePath("/admin");
+}
+
+export async function renameGroup(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const name = cleanGroupName(formData.get("name"));
+  if (!id) throw new Error("Group not found.");
+  const { data, error } = await getSupabaseAdmin().from("guest_groups").update({ name }).eq("id", id).select("id").maybeSingle();
+  if (error) throw new Error(groupErrorMessage(error));
+  if (!data) throw new Error("Group not found.");
+  revalidatePath("/admin");
+}
+
+export async function deleteGroup(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Group not found.");
+  const { data, error } = await getSupabaseAdmin().from("guest_groups").delete().eq("id", id).select("id").maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Group not found.");
   revalidatePath("/admin");
 }
 
@@ -86,20 +146,12 @@ export async function bulkGuestOperation(formData: FormData) {
     revalidatePath("/admin");
     return;
   }
-  if (operation === "group") {
-    const groupName = String(formData.get("group_name") ?? "").trim();
-    if (!groupName || groupName.length > 100) throw new Error("Enter a group name under 100 characters.");
-    const { data: group, error: groupError } = await supabase.from("guest_groups").insert({ name: groupName }).select("id").single();
-    if (groupError) throw new Error(groupError.message);
-    const { error } = await supabase.from("guests").update({ group_id: group.id }).in("id", ids);
-    if (error) throw new Error(error.message);
-    revalidatePath("/admin");
-    return;
-  }
-
   if (operation === "add_to_group") {
     const groupId = String(formData.get("existing_group_id") ?? "");
     if (!groupId) throw new Error("Choose an existing group.");
+    const { data: selectedGuests, error: selectedGuestsError } = await supabase.from("guests").select("id,group_id").in("id", ids);
+    if (selectedGuestsError) throw new Error(selectedGuestsError.message);
+    if ((selectedGuests ?? []).some((guest) => guest.group_id)) throw new Error("Remove guests from their current group before adding them to another group.");
     const { data: group, error: groupError } = await supabase.from("guest_groups").select("id").eq("id", groupId).maybeSingle();
     if (groupError) throw new Error(groupError.message);
     if (!group) throw new Error("The selected group no longer exists.");

@@ -16,7 +16,7 @@ A small Next.js app that stores guests in Supabase and sends each guest a unique
 
 5. Visit `/admin`. The browser will ask for `ADMIN_USERNAME` and `ADMIN_PASSWORD`. Add guests using a UK number beginning with `0` or `+44`, then send their texts. Numbers beginning with `0` are converted to `+44` before being stored.
 
-If the database was created before guest grouping was added, run `supabase/migrations/202608070001_add_guest_groups.sql` once in the Supabase SQL Editor. On the admin dashboard, select guests, enter a group name, and choose **Create group**. Any member's private link can then RSVP for themselves, selected group members, or the entire group.
+If the database was created before guest grouping was added, run `supabase/migrations/202608070001_add_guest_groups.sql` once in the Supabase SQL Editor. Then run `supabase/migrations/202608120001_unique_guest_group_names.sql` to enforce case-insensitive unique group names. Groups can be created and managed independently from the admin dashboard, and guests can be assigned while being created or through bulk actions. Any member's private link can then RSVP for themselves, selected group members, or the entire group.
 
 If the database was created before invitation categories were added, run `supabase/migrations/202608110001_add_invitation_categories.sql` once in the Supabase SQL Editor. Existing guests default to **Ceremony & reception** and can be reassigned individually or in bulk from the admin dashboard. Set `CEREMONY_RECEPTION_INFO_URL` and `RECEPTION_ONLY_INFO_URL` to provide a different information page for each category.
 

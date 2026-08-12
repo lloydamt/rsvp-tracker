@@ -1,8 +1,10 @@
-import { addGuest, sendInvite, updateGuest } from "@/app/actions";
+import { sendInvite, updateGuest } from "@/app/actions";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { BulkActions } from "./bulk-actions";
 import { DeleteGuestForm } from "./delete-guest-form";
+import { AddGuestForm } from "./add-guest-form";
+import { GroupManager } from "./group-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     groups = storedGroups ?? [];
   }
   const groupNames = new Map(groups.map((group) => [group.id, group.name]));
+  const managedGroups = groups.map((group) => ({
+    ...group,
+    memberCount: guests.filter((guest) => guest.group_id === group.id).length,
+  }));
   const counts = {
     attending: guests.filter((guest) => guest.status === "attending").length,
     pending: guests.filter((guest) => guest.status === "pending").length,
@@ -114,20 +120,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <span><strong>Add a guest</strong><small>Enter their contact and invitation details</small></span>
           <span className="addGuestCta">Add guest</span>
         </summary>
-        <form action={addGuest} className="inlineForm">
-          <label>Name<input name="name" required maxLength={100} placeholder="Ada Lovelace" /></label>
-          <label>Phone<input name="phone" required inputMode="tel" autoComplete="tel" placeholder="07700 900123" /></label>
-          <label>Invitation<select name="invitation_category" required defaultValue="ceremony_reception"><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
-          <button type="submit">Save guest</button>
-        </form>
+        <AddGuestForm groups={groups} />
       </details>}
+
+      {!isPreview && <GroupManager groups={managedGroups} />}
 
       <div className="listHeading">
         <div><h2>Guests</h2><span>{visibleGuests.length} shown</span></div>
         {(activeStatus || activeCategory) && <Link href={filterHref({})}>Clear filters</Link>}
       </div>
 
-      {!isPreview && visibleGuests.length > 0 && <BulkActions groups={groups} />}
+      {!isPreview && visibleGuests.length > 0 && <BulkActions groups={managedGroups} />}
 
       <section className="guestList">
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
@@ -135,7 +138,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {visibleGuests.map((guest) => (
           <details className="guestCard" key={guest.id}>
             <summary className={`guestSummary ${isPreview ? "preview" : ""}`}>
-              {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" aria-label={`Select ${guest.name}`} />}
+              {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
               <span className="guestIdentity"><strong>{guest.name}</strong><span>{guest.phone}</span></span>
               <span className="guestResponse">
                 <span className={`statusLabel ${guest.status}`}><i aria-hidden="true" />{guest.status === "pending" ? "Awaiting reply" : guest.status === "declined" ? "Declined" : "Attending"}</span>

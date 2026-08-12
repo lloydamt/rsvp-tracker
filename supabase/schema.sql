@@ -6,6 +6,9 @@ create table if not exists public.guest_groups (
   created_at timestamptz not null default now()
 );
 
+create unique index if not exists guest_groups_normalized_name_idx
+  on public.guest_groups (lower(btrim(name)));
+
 create table if not exists public.guests (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 100),

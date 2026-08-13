@@ -105,6 +105,23 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .addGuestPanel[open] .addGuestCta::after { content:"  ↑"; }
 .addGuestForm { display:grid; gap:17px; padding:18px; border-top:1px solid var(--line); background:#fffdf9; }
 .guestFields { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+.multiGuestHeader { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.multiGuestHeader strong,.multiGuestHeader small { display:block; }
+.multiGuestHeader strong { font-family:Georgia,serif; font-size:1rem; }
+.multiGuestHeader small { margin-top:3px; color:var(--muted); font-size:.72rem; }
+.multiGuestHeader > span { padding:5px 9px; border-radius:999px; background:#f2e6df; color:var(--accent); font-size:.7rem; font-weight:800; white-space:nowrap; }
+.guestRows { display:grid; gap:10px; }
+.guestInputRow { display:grid; grid-template-columns:28px minmax(150px,1fr) minmax(150px,1fr) minmax(180px,1fr) 34px; align-items:end; gap:10px; padding:13px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+.guestInputRow label { min-width:0; }
+.guestInputRow input,.guestInputRow select { margin-top:6px; }
+.guestRowNumber { display:grid; width:28px; height:28px; align-self:center; place-items:center; border-radius:50%; background:#f2e6df; color:var(--accent); font-size:.72rem; font-weight:800; }
+.removeGuestRow { display:grid; width:34px; height:34px; margin-bottom:4px; padding:0; place-items:center; border:1px solid var(--line); border-radius:50%; background:transparent; color:var(--muted); font-size:1.2rem; font-weight:400; }
+.removeGuestRow:hover:not(:disabled) { border-color:#d9aaa1; background:#fbf0ed; box-shadow:none; color:#9b3525; transform:none; }
+.removeGuestRow:disabled { cursor:not-allowed; opacity:.3; }
+.addAnotherGuest { width:max-content; padding:9px 14px; border:1px dashed #cdb8aa; background:#faf6f0; color:var(--accent); font-size:.8rem; }
+.addAnotherGuest span { margin-right:5px; font-size:1rem; }
+.addAnotherGuest:hover:not(:disabled) { background:#f4e9e2; box-shadow:none; color:#8f3f2e; }
+.addAnotherGuest:disabled { cursor:not-allowed; opacity:.5; }
 .guestGroupField { margin:0; padding:0; border:0; }
 .guestGroupField legend { margin-bottom:8px; }
 .guestGroupField legend span { margin-left:5px; color:var(--muted); font-size:.68rem; font-weight:500; }
@@ -147,7 +164,9 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .bulkBar > form { position:relative; align-items:center; flex-wrap:nowrap; }
 .bulkBar > form > button { padding:9px 15px; }
 .bulkBar > form > button:disabled { opacity:.45; }
+.bulkBar .bulkDeleteAction { border-color:#d9aaa1; }
 .bulkBar .ungroupAction { color:#7a5428; }
+.mobileUngroupAction { display:none; }
 .selectAll { min-width:110px; }
 .organizeMenu { position:relative; }
 .organizeMenu > summary { display:flex; align-items:center; gap:7px; padding:9px 14px; border:1px solid var(--line); border-radius:999px; background:#fff; cursor:pointer; list-style:none; font-size:.84rem; font-weight:800; }
@@ -209,6 +228,10 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .addGuestPanel > summary { grid-template-columns:auto 1fr; }
   .addGuestCta { display:none; }
   .guestFields { grid-template-columns:1fr; }
+  .guestInputRow { grid-template-columns:28px minmax(0,1fr) 34px; align-items:start; }
+  .guestInputRow label { grid-column:2; }
+  .guestInputRow .guestRowNumber { grid-column:1; grid-row:1; margin-top:24px; }
+  .guestInputRow .removeGuestRow { grid-column:3; grid-row:1; margin-top:22px; }
   .groupSelectRow { grid-template-columns:1fr; }
   .addGuestSubmit button { width:100%; }
   .groupsPanel > summary { grid-template-columns:auto 1fr; }
@@ -218,10 +241,13 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .bulkBar { align-items:center; flex-direction:row; }
   .bulkBar > form { display:flex; grid-template-columns:none; }
   .bulkBar > form > button { padding:9px 12px; font-size:.78rem; }
+  .bulkBar .ungroupAction { display:none; }
+  .bulkBar .bulkDeleteAction { padding:9px 11px; }
   .selectAll { min-width:0; }
   .selectAll span { display:none; }
   .organizeMenu > summary { padding:9px 11px; font-size:.78rem; }
-  .organizePopover { position:fixed; top:auto; right:12px; bottom:12px; left:12px; width:auto; max-height:calc(100vh - 24px); overflow:auto; }
+  .organizePopover { position:absolute; top:calc(100% + 18px); right:0; bottom:auto; left:auto; width:min(360px,calc(100vw - 32px)); max-height:calc(100vh - 104px); max-height:calc(100dvh - 104px); overflow:auto; overscroll-behavior:contain; }
+  .organizePopover .mobileUngroupAction { display:block; width:100%; margin-top:8px; color:#7a5428; }
   .guestSummary { grid-template-columns:auto minmax(0,1fr) auto; gap:8px 12px; }
   .guestSummary.preview { grid-template-columns:minmax(0,1fr) auto; }
   .guestResponse { grid-column:2; grid-template-columns:auto minmax(0,1fr); gap:9px; }
@@ -243,6 +269,9 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .rsvpIntro::before { content:"◇"; display:grid; width:34px; height:34px; margin:0 auto 18px; place-items:center; border:1px solid rgba(163,75,55,.25); border-radius:50%; color:var(--accent); font-family:Georgia,serif; font-size:.72rem; }
 .rsvpIntro .eyebrow { width:max-content; margin:0 auto 14px; padding:6px 10px; border-radius:999px; background:#f7ece7; letter-spacing:.16em; }
 .rsvpIntro h1 { margin-bottom:14px; font-size:clamp(2.35rem,6vw,3.65rem); letter-spacing:-.035em; }
+.rsvpIntro .rsvpDate { width:min(390px,92%); margin:4px auto 22px; }
+.rsvpIntro .rsvpDate p { gap:4px; }
+.rsvpIntro .rsvpDate time { font-size:clamp(.95rem,2vw,1.1rem); }
 .rsvpIntro > p:last-child { max-width:470px; margin:0 auto; color:var(--muted); font-family:Georgia,serif; font-size:1.02rem; line-height:1.65; }
 .rsvpCard .success { margin:0 0 28px; padding:14px 18px; border:1px solid #c8ddc3; text-align:center; }
 .rsvpForm { gap:30px; margin-top:0; }
@@ -284,6 +313,7 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .rsvpIntro { margin-bottom:32px; }
   .rsvpIntro::before { margin-bottom:16px; }
   .rsvpIntro h1 { font-size:2.35rem; }
+  .rsvpIntro .rsvpDate { width:min(320px,92%); margin-bottom:20px; }
   .choiceGrid.twoChoices { grid-template-columns:1fr; }
   .rsvpForm { gap:24px; }
   .rsvpFooter { margin-top:30px; padding-top:24px; }

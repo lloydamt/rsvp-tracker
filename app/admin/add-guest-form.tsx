@@ -1,21 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { addGuest } from "@/app/actions";
+import { addGuests } from "@/app/actions";
+
+type GuestRow = { id: number; invitationCategory: "ceremony_reception" | "reception_only" };
 
 export function AddGuestForm({ groups }: { groups: { id: string; name: string }[] }) {
   const [groupMode, setGroupMode] = useState<"none" | "existing" | "new">("none");
   const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [rows, setRows] = useState<GuestRow[]>([{ id: 1, invitationCategory: "ceremony_reception" }]);
+  const [nextRowId, setNextRowId] = useState(2);
+
+  const addRow = () => {
+    if (rows.length >= 50) return;
+    setRows((current) => [...current, { id: nextRowId, invitationCategory: "ceremony_reception" }]);
+    setNextRowId((current) => current + 1);
+  };
 
   return (
-    <form action={addGuest} className="addGuestForm">
-      <div className="guestFields">
-        <label>Name<input name="name" required maxLength={100} placeholder="Ada Lovelace" /></label>
-        <label>Phone<input name="phone" required inputMode="tel" autoComplete="tel" placeholder="07700 900123" /></label>
-        <label>Invitation<select name="invitation_category" required defaultValue="ceremony_reception"><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
+    <form action={addGuests} className="addGuestForm">
+      <div className="multiGuestHeader">
+        <div><strong>Guest details</strong><small>Add up to 50 guests in one go</small></div>
+        <span>{rows.length} guest{rows.length === 1 ? "" : "s"}</span>
       </div>
+      <div className="guestRows">
+        {rows.map((row, index) => (
+          <div className="guestInputRow" key={row.id}>
+            <span className="guestRowNumber" aria-hidden="true">{index + 1}</span>
+            <label>Name<input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} /></label>
+            <label>Phone<input name="guest_phone" required inputMode="tel" autoComplete="tel" placeholder="07700 900123" /></label>
+            <label>Invitation<select
+              name="guest_invitation_category"
+              required
+              value={row.invitationCategory}
+              onChange={(event) => setRows((current) => current.map((item) => item.id === row.id ? { ...item, invitationCategory: event.target.value as GuestRow["invitationCategory"] } : item))}
+            ><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
+            <button
+              className="removeGuestRow"
+              type="button"
+              aria-label={`Remove guest ${index + 1}`}
+              disabled={rows.length === 1}
+              onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
+            >×</button>
+          </div>
+        ))}
+      </div>
+      <button className="addAnotherGuest" type="button" onClick={addRow} disabled={rows.length >= 50}><span aria-hidden="true">+</span> Add another guest</button>
       <fieldset className="guestGroupField">
-        <legend>Group <span>Optional</span></legend>
+        <legend>Group <span>Optional · applies to everyone above</span></legend>
         <input type="hidden" name="group_mode" value={groupMode} />
         {groupMode !== "new" && <div className="groupSelectRow">
           <select
@@ -37,7 +69,7 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
           <button className="secondary" type="button" onClick={() => setGroupMode(selectedGroupId ? "existing" : "none")}>Use existing</button>
         </div>}
       </fieldset>
-      <div className="addGuestSubmit"><button type="submit">Save guest</button></div>
+      <div className="addGuestSubmit"><button type="submit">Save {rows.length} guest{rows.length === 1 ? "" : "s"}</button></div>
     </form>
   );
 }

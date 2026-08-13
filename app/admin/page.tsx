@@ -117,8 +117,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {!isPreview && <details className="addGuestPanel">
         <summary>
           <span className="addIcon" aria-hidden="true">+</span>
-          <span><strong>Add a guest</strong><small>Enter their contact and invitation details</small></span>
-          <span className="addGuestCta">Add guest</span>
+          <span><strong>Add guests</strong><small>Create one guest or several at once</small></span>
+          <span className="addGuestCta">Add guests</span>
         </summary>
         <AddGuestForm groups={groups} />
       </details>}

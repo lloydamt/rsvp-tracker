@@ -73,13 +73,14 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
       >
         <button type="submit" name="operation" value="send" disabled={selectedCount === 0}>Send invitation</button>
         <button className="secondary ungroupAction" type="submit" name="operation" value="ungroup" disabled={selectedGroupedCount === 0}>Remove from group</button>
+        <button className="danger bulkDeleteAction" type="submit" name="operation" value="delete" disabled={selectedCount === 0}>Delete selected</button>
         <details className="organizeMenu">
           <summary aria-label="More bulk actions">Organize <span aria-hidden="true">⌄</span></summary>
           <div className="organizePopover">
             <p><strong>Add to group</strong><small>Choose where to move the selected guests</small></p>
             {selectedGroupedCount > 0 ? <div className="groupMoveNotice">
               <strong>{selectedGroupedCount === 1 ? "This guest is already in a group" : `${selectedGroupedCount} selected guests are already in groups`}</strong>
-              <span>Use “Remove from group” above first, then select the guest again to add them to a different group.</span>
+              <span>Remove {selectedGroupedCount === 1 ? "this guest" : "these guests"} from the current group before moving to another.</span>
             </div> : groups.length === 0 ? <p className="pickerEmpty">Create a group in the Groups panel first.</p> : <div className="bulkGroupPicker">
               {groups.map((group) => <label key={group.id}>
                 <input type="radio" name="existing_group_id" value={group.id} />
@@ -87,6 +88,7 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
               </label>)}
             </div>}
             <button className="pickerConfirm" type="submit" name="operation" value="add_to_group" disabled={groups.length === 0 || selectedCount === 0 || selectedGroupedCount > 0}>Add selected to group</button>
+            <button className="secondary mobileUngroupAction" type="submit" name="operation" value="ungroup" disabled={selectedGroupedCount === 0}>Remove from group</button>
             <hr />
             <p><strong>Invitation type</strong><small>Change access for selected guests</small></p>
             <div className="groupControl">
@@ -96,8 +98,6 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
               </select>
               <button className="secondary" type="submit" name="operation" value="set_category">Update</button>
             </div>
-            <hr />
-            <button className="textAction dangerText" type="submit" name="operation" value="delete">Delete selected guests</button>
           </div>
         </details>
       </form>

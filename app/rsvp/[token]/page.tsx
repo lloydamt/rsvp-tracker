@@ -5,6 +5,19 @@ import { IndividualRsvpForm } from "./individual-rsvp-form";
 
 export const dynamic = "force-dynamic";
 
+function InvitationDate() {
+  return (
+    <div className="saveTheDate rsvpDate">
+      <span className="dateRule" aria-hidden="true" />
+      <p>
+        <span>Save the date</span>
+        <time dateTime="2026-10-24">October 24th, 2026</time>
+      </p>
+      <span className="dateRule" aria-hidden="true" />
+    </div>
+  );
+}
+
 function categoryInfoUrl(category: Guest["invitation_category"]) {
   const configured = category === "ceremony_reception" ? process.env.CEREMONY_RECEPTION_INFO_URL : process.env.RECEPTION_ONLY_INFO_URL;
   try {
@@ -48,6 +61,7 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
           <div className="rsvpIntro">
             <p className="eyebrow">{invitationLabel} · Group invitation</p>
             <h1>Hello, {guest.name}</h1>
+            <InvitationDate />
             <p>You can respond for yourself, selected people, or your whole group.</p>
           </div>
           {saved === "1" && <p className="success">Thanks — the selected responses have been saved.</p>}
@@ -73,6 +87,7 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
         <div className="rsvpIntro">
           <p className="eyebrow">{invitationLabel}</p>
           <h1>Hello, {guest.name}</h1>
+          <InvitationDate />
           <p>Please let us know whether you’ll be joining us.</p>
         </div>
         {saved === "1" && <p className="success">Thanks — your RSVP has been saved.</p>}

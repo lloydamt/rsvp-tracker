@@ -33,12 +33,27 @@ function groupErrorMessage(error: { code?: string; message: string }) {
   return error.code === "23505" ? "A group with that name already exists." : error.message;
 }
 
-export async function addGuest(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const phone = cleanPhone(formData.get("phone"));
-  const invitationCategory = cleanInvitationCategory(formData.get("invitation_category"));
+export async function addGuests(formData: FormData) {
+  const names = formData.getAll("guest_name");
+  const phones = formData.getAll("guest_phone");
+  const categories = formData.getAll("guest_invitation_category");
+  if (names.length === 0 || names.length > 50 || phones.length !== names.length || categories.length !== names.length) {
+    throw new Error("Add between 1 and 50 guests at a time.");
+  }
+
+  const guests = names.map((value, index) => {
+    const name = String(value).trim();
+    if (!name || name.length > 100) throw new Error(`Enter a name under 100 characters for guest ${index + 1}.`);
+    return {
+      name,
+      phone: cleanPhone(phones[index]),
+      invitation_category: cleanInvitationCategory(categories[index]),
+    };
+  });
+  const uniquePhones = new Set(guests.map((guest) => guest.phone));
+  if (uniquePhones.size !== guests.length) throw new Error("Each guest must have a different phone number.");
+
   const groupMode = String(formData.get("group_mode") ?? "none");
-  if (!name || name.length > 100) throw new Error("Enter a guest name under 100 characters.");
 
   const supabase = getSupabaseAdmin();
   let groupId: string | null = null;
@@ -61,15 +76,13 @@ export async function addGuest(formData: FormData) {
     throw new Error("Choose a valid group option.");
   }
 
-  const { error } = await supabase.from("guests").insert({
-    name,
-    phone,
-    invitation_category: invitationCategory,
+  const { error } = await supabase.from("guests").insert(guests.map((guest) => ({
+    ...guest,
     group_id: groupId,
     token: randomBytes(32).toString("base64url"),
-  });
+  })));
   if (error && createdGroupId) await supabase.from("guest_groups").delete().eq("id", createdGroupId);
-  if (error) throw new Error(error.code === "23505" ? "That phone number is already in the guest list." : error.message);
+  if (error) throw new Error(error.code === "23505" ? "One of those phone numbers is already in the guest list." : error.message);
   revalidatePath("/admin");
 }
 

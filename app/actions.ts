@@ -33,6 +33,25 @@ function groupErrorMessage(error: { code?: string; message: string }) {
   return error.code === "23505" ? "A group with that name already exists." : error.message;
 }
 
+async function deleteGroupsWithoutMembers(groupIds: Array<string | null>) {
+  const affectedGroupIds = [...new Set(groupIds.filter((id): id is string => Boolean(id)))];
+  if (affectedGroupIds.length === 0) return;
+
+  const supabase = getSupabaseAdmin();
+  const { data: remainingMembers, error: memberError } = await supabase
+    .from("guests")
+    .select("group_id")
+    .in("group_id", affectedGroupIds);
+  if (memberError) throw new Error(memberError.message);
+
+  const groupsWithMembers = new Set((remainingMembers ?? []).map((guest) => guest.group_id).filter(Boolean));
+  const emptyGroupIds = affectedGroupIds.filter((id) => !groupsWithMembers.has(id));
+  if (emptyGroupIds.length === 0) return;
+
+  const { error: groupError } = await supabase.from("guest_groups").delete().in("id", emptyGroupIds);
+  if (groupError) throw new Error(groupError.message);
+}
+
 export async function addGuests(formData: FormData) {
   const names = formData.getAll("guest_name");
   const phones = formData.getAll("guest_phone");
@@ -139,10 +158,11 @@ export async function deleteGuest(formData: FormData) {
     .from("guests")
     .delete()
     .eq("id", id)
-    .select("id")
+    .select("id,group_id")
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Guest not found.");
+  await deleteGroupsWithoutMembers([data.group_id]);
   revalidatePath("/admin");
 }
 
@@ -182,8 +202,11 @@ export async function bulkGuestOperation(formData: FormData) {
   }
 
   if (operation === "delete") {
+    const { data: selectedGuests, error: selectedGuestsError } = await supabase.from("guests").select("group_id").in("id", ids);
+    if (selectedGuestsError) throw new Error(selectedGuestsError.message);
     const { error } = await supabase.from("guests").delete().in("id", ids);
     if (error) throw new Error(error.message);
+    await deleteGroupsWithoutMembers((selectedGuests ?? []).map((guest) => guest.group_id));
     revalidatePath("/admin");
     return;
   }

@@ -44,7 +44,7 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
   if (!data) notFound();
   const guest = data as Pick<Guest, "id" | "name" | "status" | "party_size" | "notes" | "group_id" | "invitation_category">;
   const informationUrl = categoryInfoUrl(guest.invitation_category);
-  const invitationLabel = guest.invitation_category === "ceremony_reception" ? "Ceremony & reception" : "Reception only";
+  const invitationLabel = guest.invitation_category === "ceremony_reception" ? "Ceremony & reception" : "Wedding Reception";
 
   if (guest.group_id) {
     const { data: members, error } = await supabase
@@ -62,7 +62,9 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
             <p className="eyebrow">{invitationLabel} · Group invitation</p>
             <h1>Hello, {guest.name}</h1>
             <InvitationDate />
-            <p>You can respond for yourself, selected people, or your whole group.</p>
+            {guest.invitation_category === "ceremony_reception"
+              ? <p>You’re invited to our wedding ceremony and reception. Please RSVP below for yourself, selected guests, or the whole group. If anyone can only attend one part, let us know in the Note section.</p>
+              : <p>You’re invited to our wedding reception. Please RSVP below for yourself, selected guests, or the whole group.</p>}
           </div>
           {saved === "1" && <p className="success">Thanks — the selected responses have been saved.</p>}
           <GroupRsvpForm
@@ -88,7 +90,9 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
           <p className="eyebrow">{invitationLabel}</p>
           <h1>Hello, {guest.name}</h1>
           <InvitationDate />
-          <p>Please let us know whether you’ll be joining us.</p>
+          {guest.invitation_category === "ceremony_reception"
+            ? <p>You’re invited to our wedding ceremony and reception. Please RSVP below. If you can only attend one part, let us know in the Note section.</p>
+            : <p>You’re invited to our wedding reception. Please RSVP below.</p>}
         </div>
         {saved === "1" && <p className="success">Thanks — your RSVP has been saved.</p>}
         <IndividualRsvpForm token={invitationToken} initialStatus={guest.status} initialNotes={guest.notes} />

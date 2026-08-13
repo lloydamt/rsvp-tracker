@@ -25,6 +25,16 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
     },
     null,
   );
+  const [visibleFeedback, setVisibleFeedback] = useState<typeof feedback>(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    setVisibleFeedback(feedback);
+    if (feedback.status !== "success") return;
+
+    const timeout = window.setTimeout(() => setVisibleFeedback(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
 
   useEffect(() => {
     const checkboxes = guestCheckboxes();
@@ -68,6 +78,7 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
           }
           const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
           setSubmittedOperation(submitter?.value ?? "");
+          setVisibleFeedback(null);
           if (submitter?.value === "delete" && !window.confirm(`Delete ${selected.length} selected guest${selected.length === 1 ? "" : "s"}? This cannot be undone.`)) {
             event.preventDefault();
           }
@@ -83,13 +94,13 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
           }
         }}
       >
-        {((isPending && submittedOperation === "send") || feedback) && (
+        {((isPending && submittedOperation === "send") || visibleFeedback) && (
           <span
-            className={`sendFeedback bulkSendFeedback ${isPending ? "pending" : feedback?.status}`}
-            role={feedback?.status === "error" ? "alert" : "status"}
+            className={`sendFeedback bulkSendFeedback ${isPending ? "pending" : visibleFeedback?.status}`}
+            role={visibleFeedback?.status === "error" ? "alert" : "status"}
             aria-live="polite"
           >
-            {isPending && submittedOperation === "send" ? "Attempting to send invitation texts…" : feedback?.message}
+            {isPending && submittedOperation === "send" ? "Attempting to send invitation texts…" : visibleFeedback?.message}
           </span>
         )}
         <button type="submit" name="operation" value="send" disabled={selectedCount === 0 || isPending}>{isPending && submittedOperation === "send" ? "Sending…" : "Send invitation"}</button>

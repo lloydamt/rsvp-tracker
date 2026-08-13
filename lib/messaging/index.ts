@@ -12,8 +12,8 @@ export function getMessagingService(): MessagingService {
   throw new Error(`Unsupported messaging provider: ${provider}. Use twilio or vonage.`);
 }
 
-export async function sendRsvpInvitation(guest: { name: string; phone: string; token: string; invitation_category: InvitationCategory }) {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
+export async function sendRsvpInvitation(guest: { name: string; phone: string; token: string; invitation_category: InvitationCategory }, appUrl?: string) {
+  const configuredUrl = appUrl || process.env.NEXT_PUBLIC_APP_URL;
   if (!configuredUrl) throw new Error("NEXT_PUBLIC_APP_URL is missing.");
 
   let inviteUrl: URL;

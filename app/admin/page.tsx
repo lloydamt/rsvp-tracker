@@ -1,10 +1,11 @@
-import { sendInvite, updateGuest } from "@/app/actions";
+import { updateGuest } from "@/app/actions";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { BulkActions } from "./bulk-actions";
 import { DeleteGuestForm } from "./delete-guest-form";
 import { AddGuestForm } from "./add-guest-form";
 import { GroupManager } from "./group-manager";
+import { SendInviteForm } from "./send-invite-form";
 
 export const dynamic = "force-dynamic";
 
@@ -160,10 +161,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               </form>}
               {guest.notes && <p className="guestNote">Guest note: “{guest.notes}”</p>}
               {!isPreview && <div className="guestActions">
-                <form action={sendInvite}>
-                  <input type="hidden" name="id" value={guest.id} />
-                  <button className="secondary" type="submit">{guest.message_sent_at ? "Resend text" : "Send text"}</button>
-                </form>
+                <SendInviteForm id={guest.id} hasBeenSent={Boolean(guest.message_sent_at)} />
                 <DeleteGuestForm id={guest.id} name={guest.name} />
               </div>}
             </div>

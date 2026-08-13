@@ -5,7 +5,7 @@ A small Next.js app that stores guests in Supabase and sends each guest a unique
 ## Set up
 
 1. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
-2. Copy `.env.example` to `.env.local` and fill in every value. `NEXT_PUBLIC_APP_URL` must be your public HTTPS URL in production.
+2. Copy `.env.example` to `.env.local` and fill in every value. Set `NEXT_PUBLIC_APP_URL` to your public HTTPS URL in production. As a safeguard, production send actions use the current public request origin if this variable is missing, invalid, or still points to localhost.
 3. Configure the Vonage API key, secret, and sender ID from `.env.example`. Vonage is the default provider. To use Twilio instead, set `MESSAGING_PROVIDER=twilio` and configure a Twilio Messaging Service SID (preferred) or sender ID.
 4. Install and run:
 

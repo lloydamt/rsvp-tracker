@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { bulkGuestOperation } from "@/app/actions";
 
 const formId = "bulk-guest-form";
@@ -14,6 +14,17 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
   const [selectedCount, setSelectedCount] = useState(0);
   const [selectedGroupedCount, setSelectedGroupedCount] = useState(0);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const [submittedOperation, setSubmittedOperation] = useState("");
+  const [feedback, formAction, isPending] = useActionState(
+    async (_previousFeedback: Awaited<ReturnType<typeof bulkGuestOperation>> | null, formData: FormData) => {
+      try {
+        return await bulkGuestOperation(formData) ?? null;
+      } catch {
+        return { status: "error" as const, message: "That action could not be completed. Please try again." };
+      }
+    },
+    null,
+  );
 
   useEffect(() => {
     const checkboxes = guestCheckboxes();
@@ -47,7 +58,7 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
       </label>
       <form
         id={formId}
-        action={bulkGuestOperation}
+        action={formAction}
         onSubmit={(event) => {
           const selected = guestCheckboxes().filter((checkbox) => checkbox.checked);
           if (selected.length === 0) {
@@ -56,6 +67,7 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
             return;
           }
           const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+          setSubmittedOperation(submitter?.value ?? "");
           if (submitter?.value === "delete" && !window.confirm(`Delete ${selected.length} selected guest${selected.length === 1 ? "" : "s"}? This cannot be undone.`)) {
             event.preventDefault();
           }
@@ -71,7 +83,16 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
           }
         }}
       >
-        <button type="submit" name="operation" value="send" disabled={selectedCount === 0}>Send invitation</button>
+        {((isPending && submittedOperation === "send") || feedback) && (
+          <span
+            className={`sendFeedback bulkSendFeedback ${isPending ? "pending" : feedback?.status}`}
+            role={feedback?.status === "error" ? "alert" : "status"}
+            aria-live="polite"
+          >
+            {isPending && submittedOperation === "send" ? "Attempting to send invitation texts…" : feedback?.message}
+          </span>
+        )}
+        <button type="submit" name="operation" value="send" disabled={selectedCount === 0 || isPending}>{isPending && submittedOperation === "send" ? "Sending…" : "Send invitation"}</button>
         <button className="secondary ungroupAction" type="submit" name="operation" value="ungroup" disabled={selectedGroupedCount === 0}>Remove from group</button>
         <button className="danger bulkDeleteAction" type="submit" name="operation" value="delete" disabled={selectedCount === 0}>Delete selected</button>
         <details className="organizeMenu">

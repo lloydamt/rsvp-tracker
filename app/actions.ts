@@ -2,9 +2,34 @@
 
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSupabaseAdmin, InvitationCategory, RsvpStatus } from "@/lib/supabase";
 import { sendRsvpInvitation } from "@/lib/messaging";
+
+async function invitationBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configuredUrl) {
+    try {
+      const url = new URL(configuredUrl);
+      const isLocalUrl = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+      if (process.env.NODE_ENV !== "production" || !isLocalUrl) return url.origin;
+    } catch {
+      // In production, fall through to the public request origin so an invalid
+      // local setting cannot leak into invitation texts.
+    }
+  }
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim() || requestHeaders.get("host");
+  if (host) {
+    const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0].trim();
+    const protocol = forwardedProtocol || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+    return new URL(`${protocol}://${host}`).origin;
+  }
+
+  throw new Error("Set NEXT_PUBLIC_APP_URL to the public HTTPS URL for this site.");
+}
 
 function cleanPhone(value: FormDataEntryValue | null) {
   const phone = String(value ?? "")
@@ -213,38 +238,72 @@ export async function bulkGuestOperation(formData: FormData) {
 
   if (operation !== "send") throw new Error("Invalid bulk operation.");
   const { data: guests, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category").in("id", ids);
-  if (error) throw new Error(error.message);
+  if (error) return { status: "error" as const, message: "The invitation texts could not be attempted. Please try again." };
+
+  let appUrl: string;
+  try {
+    appUrl = await invitationBaseUrl();
+  } catch (error) {
+    return { status: "error" as const, message: error instanceof Error ? error.message : "The invitation URL could not be created." };
+  }
 
   const sentIds: string[] = [];
-  const failures: string[] = [];
+  const failures: Array<{ name: string; reason: string }> = [];
 
   for (let index = 0; index < (guests ?? []).length; index += 10) {
     const batch = (guests ?? []).slice(index, index + 10);
-    const results = await Promise.allSettled(batch.map(sendRsvpInvitation));
+    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest, appUrl)));
     results.forEach((result, resultIndex) => {
       const guest = batch[resultIndex];
       if (result.status === "fulfilled") sentIds.push(guest.id);
-      else failures.push(guest.name);
+      else failures.push({
+        name: guest.name,
+        reason: result.reason instanceof Error ? result.reason.message : "The messaging provider rejected the request.",
+      });
     });
   }
 
   if (sentIds.length > 0) {
     const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).in("id", sentIds);
-    if (updateError) throw new Error(updateError.message);
+    if (updateError) {
+      return {
+        status: "success" as const,
+        message: `${sentIds.length} invitation text${sentIds.length === 1 ? " was" : "s were"} sent, but the sent status could not be saved.`,
+      };
+    }
   }
   revalidatePath("/admin");
-  if (failures.length > 0) throw new Error(`Texting failed for: ${failures.join(", ")}.`);
+  if (failures.length > 0) {
+    const sentSummary = sentIds.length > 0 ? `${sentIds.length} sent. ` : "";
+    const reasons = [...new Set(failures.map((failure) => failure.reason))];
+    return {
+      status: "error" as const,
+      message: `${sentSummary}Texting failed for: ${failures.map((failure) => failure.name).join(", ")}. ${reasons.join(" ")}`,
+    };
+  }
+  return {
+    status: "success" as const,
+    message: `${sentIds.length} invitation text${sentIds.length === 1 ? " was" : "s were"} sent.`,
+  };
 }
 
 export async function sendInvite(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const supabase = getSupabaseAdmin();
   const { data: guest, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category").eq("id", id).single();
-  if (error || !guest) throw new Error("Guest not found.");
+  if (error || !guest) return { status: "error" as const, message: "The text could not be attempted because the guest was not found." };
 
-  await sendRsvpInvitation(guest);
-  await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
-  revalidatePath("/admin");
+  try {
+    const appUrl = await invitationBaseUrl();
+    await sendRsvpInvitation(guest, appUrl);
+    const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
+    revalidatePath("/admin");
+    if (updateError) return { status: "success" as const, message: "Text sent, but the sent status could not be saved." };
+    return { status: "success" as const, message: `Text sent to ${guest.name}.` };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "The messaging provider rejected the request.";
+    return { status: "error" as const, message: `The text to ${guest.name} could not be sent. ${reason}` };
+  }
 }
 
 export async function submitRsvp(token: string, formData: FormData) {

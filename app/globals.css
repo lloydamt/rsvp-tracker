@@ -218,6 +218,10 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .guestIdentity { flex-direction:column; align-items:flex-start; gap:3px; }
 .guestIdentity strong { font-size:.9rem; }
 .guestIdentity span { font-size:.75rem; }
+.guestIdentity .noPhone { font-style:italic; }
+.optionalField { margin-left:6px; color:var(--muted); font-size:.68rem; font-weight:500; }
+.guestEditError,.guestActionError { margin:8px 0 0; color:#9b3525; font-size:.78rem; }
+.guestEditForm .guestEditError { grid-column:1 / -1; }
 .guestResponse { display:grid; grid-template-columns:120px minmax(0,1fr); align-items:center; gap:12px; min-width:0; white-space:normal; }
 .statusLabel { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:.75rem; font-weight:800; }
 .statusLabel i { width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:#aaa39a; }
@@ -244,6 +248,14 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .groupSelectWrap { display:grid; align-self:center; place-items:center; }
 .groupMembers { display:grid; gap:6px; padding:8px 10px 10px 22px; border-top:1px solid #e3dced; background:#f4eff8; }
 .groupMembers .guestCard { box-shadow:none; }
+.addGuestHint { margin:0; color:#5d4b7d; font-size:.76rem; }
+.addGroupMemberForm { display:grid; grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) minmax(160px,1fr) auto; align-items:end; gap:10px; padding:12px; border:1px dashed #c9b9df; border-radius:12px; background:rgba(255,255,255,.72); }
+.addGroupMemberForm.hasError { border-color:#d9aaa1; background:#fdf6f4; }
+.addGroupMemberForm .addGroupMemberHint { grid-column:1 / -1; margin:0; color:#5d4b7d; font-size:.72rem; }
+.addGroupMemberForm label { min-width:0; }
+.addGroupMemberForm input,.addGroupMemberForm select { margin-top:6px; }
+.addGroupMemberForm button { margin-bottom:2px; padding:11px 16px; }
+.addGroupMemberForm .addGuestFeedback { grid-column:1 / -1; }
 
 @media (max-width:800px) {
   .container { padding:32px 16px 56px; }
@@ -292,6 +304,7 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .groupSummary::after { grid-column:3; grid-row:1 / 3; }
   .groupSummary.preview::after { grid-column:2; }
   .groupMembers { padding-left:12px; }
+  .addGroupMemberForm { grid-template-columns:1fr; }
 }
 
 /* RSVP experience */

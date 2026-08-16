@@ -156,7 +156,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
         {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match this response filter.</div>}
         {visibleGroups.map((group) => (
-          <GuestGroupCard key={group.id} name={group.name} members={group.members} isPreview={isPreview} />
+          <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} />
         ))}
         {ungroupedGuests.map((guest) => (
           <GuestCard key={guest.id} guest={guest} isPreview={isPreview} />

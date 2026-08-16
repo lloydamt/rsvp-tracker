@@ -6,7 +6,7 @@ export type InvitationCategory = "ceremony_reception" | "reception_only";
 export type Guest = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   token: string;
   group_id: string | null;
   invitation_category: InvitationCategory;

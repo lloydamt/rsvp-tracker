@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 import { createGroup, deleteGroup, renameGroup } from "@/app/actions";
 
 type ManagedGroup = { id: string; name: string; memberCount: number };
 
 export function GroupManager({ groups }: { groups: ManagedGroup[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteResult, deleteAction, isDeleting] = useActionState(
+    async (_previous: { status: "error"; message: string } | null, formData: FormData) => {
+      try {
+        await deleteGroup(formData);
+        return null;
+      } catch (error) {
+        return { status: "error" as const, message: error instanceof Error ? error.message : "That group could not be deleted." };
+      }
+    },
+    null,
+  );
 
   return (
     <details className="groupsPanel">
@@ -31,16 +42,17 @@ export function GroupManager({ groups }: { groups: ManagedGroup[] }) {
               <span className="groupRowIdentity"><strong>{group.name}</strong><small>{group.memberCount} member{group.memberCount === 1 ? "" : "s"}</small></span>
               <span className="groupRowActions">
                 <button className="textButton" type="button" onClick={() => setEditingId(group.id)}>Rename</button>
-                <form action={deleteGroup} onSubmit={(event) => {
+                <form action={deleteAction} onSubmit={(event) => {
                   if (!window.confirm(`Delete “${group.name}”? ${group.memberCount > 0 ? `${group.memberCount} guest${group.memberCount === 1 ? " will" : "s will"} become ungrouped.` : ""}`)) event.preventDefault();
                 }}>
                   <input type="hidden" name="id" value={group.id} />
-                  <button className="textButton dangerText" type="submit">Delete</button>
+                  <button className="textButton dangerText" type="submit" disabled={isDeleting}>Delete</button>
                 </form>
               </span>
             </>}
           </div>)}
         </div>}
+        {deleteResult?.status === "error" && <p className="guestActionError" role="alert">{deleteResult.message}</p>}
       </div>
     </details>
   );

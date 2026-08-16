@@ -19,8 +19,8 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
     async (_previousFeedback: Awaited<ReturnType<typeof bulkGuestOperation>> | null, formData: FormData) => {
       try {
         return await bulkGuestOperation(formData) ?? null;
-      } catch {
-        return { status: "error" as const, message: "That action could not be completed. Please try again." };
+      } catch (error) {
+        return { status: "error" as const, message: error instanceof Error ? error.message : "That action could not be completed. Please try again." };
       }
     },
     null,

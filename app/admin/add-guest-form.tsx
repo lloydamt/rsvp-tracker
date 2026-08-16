@@ -57,7 +57,7 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
   return (
     <form action={formAction} className="addGuestForm">
       <div className="multiGuestHeader">
-        <div><strong>Guest details</strong><small>Add up to 50 guests in one go</small></div>
+        <div><strong>Guest details</strong><small>Add up to 50 guests in one go. Phone can be left blank for plus-ones if someone in the group has a number.</small></div>
         <span>{rows.length} guest{rows.length === 1 ? "" : "s"}</span>
       </div>
       <div className="guestRows">
@@ -65,12 +65,12 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
           <div className={`guestInputRow${row.phoneError ? " hasError" : ""}`} key={row.id}>
             <span className="guestRowNumber" aria-hidden="true">{index + 1}</span>
             <label>Name<input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} /></label>
-            <label>Phone<input
+            <label>Phone<span className="optionalField">{groupMode === "none" && index === 0 ? "Required" : "Optional in a group"}</span><input
               name="guest_phone"
-              required
+              required={groupMode === "none" && index === 0}
               inputMode="tel"
               autoComplete="tel"
-              placeholder="07700 900123"
+              placeholder={index === 0 ? "07700 900123" : "Optional plus-one"}
               value={row.phone}
               aria-invalid={Boolean(row.phoneError)}
               aria-describedby={row.phoneError ? `guest-phone-error-${row.id}` : undefined}
@@ -94,7 +94,8 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
           </div>
         ))}
       </div>
-      <button className="addAnotherGuest" type="button" onClick={addRow} disabled={isPending || rows.length >= 50}><span aria-hidden="true">+</span> Add another guest</button>
+      <button className="addAnotherGuest" type="button" onClick={addRow} disabled={isPending || rows.length >= 50}><span aria-hidden="true">+</span> Add plus-one or another guest</button>
+      {rows.length > 1 && groupMode === "none" && <p className="addGuestHint">Choose or create a group below to save plus-ones without a phone number.</p>}
       <fieldset className="guestGroupField">
         <legend>Group <span>Optional · applies to everyone above</span></legend>
         <input type="hidden" name="group_mode" value={groupMode} />

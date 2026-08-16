@@ -1,4 +1,5 @@
 import { Guest } from "@/lib/supabase";
+import { AddGroupMemberForm } from "./add-group-member-form";
 import { GuestCard } from "./guest-card";
 import { GroupSelectCheckbox } from "./group-select-checkbox";
 
@@ -14,15 +15,18 @@ function rsvpParts(members: Guest[]) {
 }
 
 export function GuestGroupCard({
+  id,
   name,
   members,
   isPreview,
 }: {
+  id: string;
   name: string;
   members: Guest[];
   isPreview: boolean;
 }) {
   const breakdown = rsvpParts(members);
+  const defaultInvitationCategory = members[0]?.invitation_category ?? "ceremony_reception";
 
   return (
     <details className="groupCard">
@@ -42,6 +46,14 @@ export function GuestGroupCard({
         {members.map((guest) => (
           <GuestCard key={guest.id} guest={guest} isPreview={isPreview} hideGroupName />
         ))}
+        {!isPreview && (
+          <AddGroupMemberForm
+            groupId={id}
+            groupName={name}
+            defaultInvitationCategory={defaultInvitationCategory}
+            phoneRequired={members.every((guest) => !guest.phone)}
+          />
+        )}
       </div>
     </details>
   );

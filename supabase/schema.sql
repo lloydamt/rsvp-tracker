@@ -12,7 +12,7 @@ create unique index if not exists guest_groups_normalized_name_idx
 create table if not exists public.guests (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 100),
-  phone text not null unique,
+  phone text unique,
   token text not null unique check (token ~ '^[A-HJ-KM-NP-Z2-9]{4}$'),
   group_id uuid references public.guest_groups(id) on delete set null,
   invitation_category text not null default 'ceremony_reception' check (invitation_category in ('ceremony_reception', 'reception_only')),
@@ -21,7 +21,8 @@ create table if not exists public.guests (
   notes text check (char_length(notes) <= 500),
   message_sent_at timestamptz,
   responded_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint guests_ungrouped_require_phone check (group_id is not null or phone is not null)
 );
 
 alter table public.guests enable row level security;

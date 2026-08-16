@@ -58,7 +58,10 @@ export function BulkActions({ groups }: { groups: { id: string; name: string; me
           type="checkbox"
           checked={allSelected}
           onChange={(event) => {
-            guestCheckboxes().forEach((checkbox) => { checkbox.checked = event.target.checked; });
+            guestCheckboxes().forEach((checkbox) => {
+              checkbox.checked = event.target.checked;
+              checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+            });
             setAllSelected(event.target.checked);
             setSelectedCount(event.target.checked ? guestCheckboxes().length : 0);
             setSelectedGroupedCount(event.target.checked ? guestCheckboxes().filter((checkbox) => checkbox.dataset.grouped === "true").length : 0);

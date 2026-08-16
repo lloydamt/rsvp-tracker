@@ -1,21 +1,22 @@
-import { updateGuest } from "@/app/actions";
 import { GUEST_TOKEN_ALPHABET } from "@/lib/guest-token";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { BulkActions } from "./bulk-actions";
-import { DeleteGuestForm } from "./delete-guest-form";
 import { AddGuestForm } from "./add-guest-form";
+import { GuestCard } from "./guest-card";
+import { GuestGroupCard } from "./guest-group-card";
 import { GroupManager } from "./group-manager";
-import { SendInviteForm } from "./send-invite-form";
 
 export const dynamic = "force-dynamic";
 
 const filters = ["attending", "pending", "declined"] as const;
 
-const previewGroups = [
-  { id: "preview-group-1", name: "Bride's family" },
-  { id: "preview-group-2", name: "Groom's family" },
-  { id: "preview-group-3", name: "University friends" },
+type GuestGroup = { id: string; name: string; created_at: string };
+
+const previewGroups: GuestGroup[] = [
+  { id: "preview-group-1", name: "Bride's family", created_at: new Date(Date.now() - 180_000).toISOString() },
+  { id: "preview-group-2", name: "Groom's family", created_at: new Date(Date.now() - 120_000).toISOString() },
+  { id: "preview-group-3", name: "University friends", created_at: new Date(Date.now() - 60_000).toISOString() },
 ];
 
 function previewToken(index: number) {
@@ -58,7 +59,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const activeStatus = filters.find((status) => status === requestedStatus);
   const activeCategory = query.category === "ceremony_reception" || query.category === "reception_only" ? query.category : undefined;
   let guests: Guest[];
-  let groups: { id: string; name: string }[];
+  let groups: GuestGroup[];
   if (isPreview) {
     guests = createPreviewGuests(300);
     groups = previewGroups;
@@ -66,11 +67,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     const { data, error } = await getSupabaseAdmin().from("guests").select("*").order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     guests = (data ?? []) as Guest[];
-    const { data: storedGroups, error: groupsError } = await getSupabaseAdmin().from("guest_groups").select("id,name").order("name");
+    const { data: storedGroups, error: groupsError } = await getSupabaseAdmin().from("guest_groups").select("id,name,created_at").order("name");
     if (groupsError) throw new Error(groupsError.message);
     groups = storedGroups ?? [];
   }
-  const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const managedGroups = groups.map((group) => ({
     ...group,
     memberCount: guests.filter((guest) => guest.group_id === group.id).length,
@@ -85,6 +85,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     reception_only: guests.filter((guest) => guest.invitation_category === "reception_only").length,
   };
   const visibleGuests = guests.filter((guest) => (!activeStatus || guest.status === activeStatus) && (!activeCategory || guest.invitation_category === activeCategory));
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      members: visibleGuests.filter((guest) => guest.group_id === group.id),
+    }))
+    .filter((group) => group.members.length > 0)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.name.localeCompare(b.name));
+  const ungroupedGuests = visibleGuests.filter((guest) => !guest.group_id);
   const filterHref = ({ status, category }: { status?: typeof activeStatus; category?: typeof activeCategory }) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
@@ -147,37 +155,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <section className="guestList">
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
         {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match this response filter.</div>}
-        {visibleGuests.map((guest) => (
-          <details className="guestCard" key={guest.id}>
-            <summary className={`guestSummary ${isPreview ? "preview" : ""}`}>
-              {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
-              <span className="guestIdentity"><strong>{guest.name}</strong><span>{guest.phone}</span></span>
-              <span className="guestResponse">
-                <span className={`statusLabel ${guest.status}`}><i aria-hidden="true" />{guest.status === "pending" ? "Awaiting reply" : guest.status === "declined" ? "Declined" : "Attending"}</span>
-                <span className="guestMeta">
-                  {guest.invitation_category === "ceremony_reception" ? "Ceremony & reception" : "Reception only"}
-                  {guest.status === "attending" && <> · Party of {guest.party_size}</>}
-                  {guest.group_id && <> · {groupNames.get(guest.group_id) ?? "Group"}</>}
-                </span>
-              </span>
-            </summary>
-            <div className="guestDetails">
-              {isPreview && <p className="previewDetail">Generated preview guest — management actions are disabled.</p>}
-              <p className="guestCode">RSVP code <strong>{guest.token}</strong></p>
-              {!isPreview && <form action={updateGuest} className="guestEditForm">
-                <input type="hidden" name="id" value={guest.id} />
-                <label>Name<input name="name" required maxLength={100} defaultValue={guest.name} /></label>
-                <label>Phone<input name="phone" required inputMode="tel" autoComplete="tel" defaultValue={guest.phone} /></label>
-                <label>Invitation<select name="invitation_category" required defaultValue={guest.invitation_category}><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
-                <button className="secondary" type="submit">Save changes</button>
-              </form>}
-              {guest.notes && <p className="guestNote">Guest note: “{guest.notes}”</p>}
-              {!isPreview && <div className="guestActions">
-                <SendInviteForm id={guest.id} hasBeenSent={Boolean(guest.message_sent_at)} />
-                <DeleteGuestForm id={guest.id} name={guest.name} />
-              </div>}
-            </div>
-          </details>
+        {visibleGroups.map((group) => (
+          <GuestGroupCard key={group.id} name={group.name} members={group.members} isPreview={isPreview} />
+        ))}
+        {ungroupedGuests.map((guest) => (
+          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} />
         ))}
       </section>
     </main>

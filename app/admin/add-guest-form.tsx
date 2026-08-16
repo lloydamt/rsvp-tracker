@@ -1,51 +1,100 @@
 "use client";
 
-import { useState } from "react";
-import { addGuests } from "@/app/actions";
+import { useActionState, useState } from "react";
+import { addGuests, type AddGuestsResult } from "@/app/actions";
 
-type GuestRow = { id: number; invitationCategory: "ceremony_reception" | "reception_only" };
+type InvitationCategory = "ceremony_reception" | "reception_only";
+type GuestRow = {
+  id: number;
+  name: string;
+  phone: string;
+  invitationCategory: InvitationCategory;
+  phoneError?: string;
+};
+
+function emptyRow(id: number): GuestRow {
+  return { id, name: "", phone: "", invitationCategory: "ceremony_reception" };
+}
 
 export function AddGuestForm({ groups }: { groups: { id: string; name: string }[] }) {
   const [groupMode, setGroupMode] = useState<"none" | "existing" | "new">("none");
   const [selectedGroupId, setSelectedGroupId] = useState("");
-  const [rows, setRows] = useState<GuestRow[]>([{ id: 1, invitationCategory: "ceremony_reception" }]);
+  const [rows, setRows] = useState<GuestRow[]>([emptyRow(1)]);
   const [nextRowId, setNextRowId] = useState(2);
+  const [result, formAction, isPending] = useActionState(
+    async (_previous: AddGuestsResult | null, formData: FormData) => {
+      try {
+        const nextResult = await addGuests(formData);
+        if (nextResult.status === "success") {
+          setRows([emptyRow(1)]);
+          setNextRowId(2);
+          setGroupMode("none");
+          setSelectedGroupId("");
+          return nextResult;
+        }
+        setRows((current) => current.map((row, index) => ({
+          ...row,
+          phoneError: nextResult.phoneErrors?.[index] || undefined,
+        })));
+        return nextResult;
+      } catch {
+        return { status: "error" as const, message: "Those guests could not be saved. Please try again." };
+      }
+    },
+    null,
+  );
 
   const addRow = () => {
     if (rows.length >= 50) return;
-    setRows((current) => [...current, { id: nextRowId, invitationCategory: "ceremony_reception" }]);
+    setRows((current) => [...current, emptyRow(nextRowId)]);
     setNextRowId((current) => current + 1);
   };
 
+  const updateRow = (id: number, patch: Partial<GuestRow>) => {
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
   return (
-    <form action={addGuests} className="addGuestForm">
+    <form action={formAction} className="addGuestForm">
       <div className="multiGuestHeader">
         <div><strong>Guest details</strong><small>Add up to 50 guests in one go</small></div>
         <span>{rows.length} guest{rows.length === 1 ? "" : "s"}</span>
       </div>
       <div className="guestRows">
         {rows.map((row, index) => (
-          <div className="guestInputRow" key={row.id}>
+          <div className={`guestInputRow${row.phoneError ? " hasError" : ""}`} key={row.id}>
             <span className="guestRowNumber" aria-hidden="true">{index + 1}</span>
-            <label>Name<input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} /></label>
-            <label>Phone<input name="guest_phone" required inputMode="tel" autoComplete="tel" placeholder="07700 900123" /></label>
+            <label>Name<input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} /></label>
+            <label>Phone<input
+              name="guest_phone"
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="07700 900123"
+              value={row.phone}
+              aria-invalid={Boolean(row.phoneError)}
+              aria-describedby={row.phoneError ? `guest-phone-error-${row.id}` : undefined}
+              onChange={(event) => updateRow(row.id, { phone: event.target.value, phoneError: undefined })}
+            />
+              {row.phoneError && <small className="guestPhoneError" id={`guest-phone-error-${row.id}`} role="alert">{row.phoneError}</small>}
+            </label>
             <label>Invitation<select
               name="guest_invitation_category"
               required
               value={row.invitationCategory}
-              onChange={(event) => setRows((current) => current.map((item) => item.id === row.id ? { ...item, invitationCategory: event.target.value as GuestRow["invitationCategory"] } : item))}
+              onChange={(event) => updateRow(row.id, { invitationCategory: event.target.value as InvitationCategory })}
             ><option value="ceremony_reception">Ceremony &amp; reception</option><option value="reception_only">Reception only</option></select></label>
             <button
               className="removeGuestRow"
               type="button"
               aria-label={`Remove guest ${index + 1}`}
-              disabled={rows.length === 1}
+              disabled={isPending || rows.length === 1}
               onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
             >×</button>
           </div>
         ))}
       </div>
-      <button className="addAnotherGuest" type="button" onClick={addRow} disabled={rows.length >= 50}><span aria-hidden="true">+</span> Add another guest</button>
+      <button className="addAnotherGuest" type="button" onClick={addRow} disabled={isPending || rows.length >= 50}><span aria-hidden="true">+</span> Add another guest</button>
       <fieldset className="guestGroupField">
         <legend>Group <span>Optional · applies to everyone above</span></legend>
         <input type="hidden" name="group_mode" value={groupMode} />
@@ -69,7 +118,8 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
           <button className="secondary" type="button" onClick={() => setGroupMode(selectedGroupId ? "existing" : "none")}>Use existing</button>
         </div>}
       </fieldset>
-      <div className="addGuestSubmit"><button type="submit">Save {rows.length} guest{rows.length === 1 ? "" : "s"}</button></div>
+      {result && <p className={`addGuestFeedback ${result.status}`} role={result.status === "error" ? "alert" : "status"}>{result.message}</p>}
+      <div className="addGuestSubmit"><button type="submit" disabled={isPending}>{isPending ? "Saving…" : `Save ${rows.length} guest${rows.length === 1 ? "" : "s"}`}</button></div>
     </form>
   );
 }

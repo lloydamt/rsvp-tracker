@@ -325,7 +325,7 @@ export async function submitGroupRsvp(token: string, formData: FormData) {
   let targetIds: string[];
   if (scope === "self") targetIds = [owner.id];
   else if (scope === "group") targetIds = [...memberIds];
-  else targetIds = selectedIds.filter((id) => memberIds.has(id));
+  else targetIds = [...new Set([owner.id, ...selectedIds.filter((id) => memberIds.has(id))])];
   if (targetIds.length === 0) throw new Error("Select at least one person from the group.");
 
   const { error } = await supabase.from("guests").update({

@@ -27,10 +27,16 @@ export default function Home() {
           <span className="dateRule" aria-hidden="true" />
         </div>
         <p className="welcomeMessage">We’re so happy you’re here and can’t wait to celebrate with you.</p>
-        <a className="moreInfoLink homeInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">
-          <span>Discover the celebration</span>
-          <span className="linkArrow" aria-hidden="true">↗</span>
-        </a>
+        <div className="homeActions">
+          <a className="moreInfoLink homeInfoLink" href="/rsvp">
+            <span>Enter your RSVP code</span>
+            <span className="linkArrow" aria-hidden="true">→</span>
+          </a>
+          <a className="moreInfoLink homeInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">
+            <span>Discover the celebration</span>
+            <span className="linkArrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
       </section>
     </main>
   );

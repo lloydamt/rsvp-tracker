@@ -1,4 +1,5 @@
 import { updateGuest } from "@/app/actions";
+import { GUEST_TOKEN_ALPHABET } from "@/lib/guest-token";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { BulkActions } from "./bulk-actions";
@@ -17,6 +18,16 @@ const previewGroups = [
   { id: "preview-group-3", name: "University friends" },
 ];
 
+function previewToken(index: number) {
+  let value = index;
+  let token = "";
+  for (let position = 0; position < 4; position++) {
+    token = GUEST_TOKEN_ALPHABET[value % GUEST_TOKEN_ALPHABET.length] + token;
+    value = Math.floor(value / GUEST_TOKEN_ALPHABET.length);
+  }
+  return token;
+}
+
 function createPreviewGuests(count: number): Guest[] {
   const firstNames = ["Ada", "Michael", "Tadiwa", "Amara", "Daniel", "Grace", "Noah", "Olivia", "Samuel", "Zara", "Theo", "Maya"];
   const lastNames = ["Thomas", "Williams", "Okafor", "Patel", "Johnson", "Mensah", "Clarke", "Adeyemi", "Taylor", "Brown"];
@@ -27,7 +38,7 @@ function createPreviewGuests(count: number): Guest[] {
       id: `preview-guest-${index + 1}`,
       name: `${firstNames[index % firstNames.length]} ${lastNames[Math.floor(index / firstNames.length) % lastNames.length]} ${index + 1}`,
       phone: `+447700${String(900000 + index).slice(-6)}`,
-      token: `preview-token-${index + 1}`,
+      token: previewToken(index),
       group_id: index % 4 === 0 ? previewGroups[index % previewGroups.length].id : null,
       invitation_category: index % 3 === 0 ? "reception_only" : "ceremony_reception",
       status,
@@ -152,6 +163,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </summary>
             <div className="guestDetails">
               {isPreview && <p className="previewDetail">Generated preview guest — management actions are disabled.</p>}
+              <p className="guestCode">RSVP code <strong>{guest.token}</strong></p>
               {!isPreview && <form action={updateGuest} className="guestEditForm">
                 <input type="hidden" name="id" value={guest.id} />
                 <label>Name<input name="name" required maxLength={100} defaultValue={guest.name} /></label>

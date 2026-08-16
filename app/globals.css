@@ -35,6 +35,7 @@ h1,h2,h3,p { margin-top:0; } h1 { font-family:Georgia,serif; font-size:clamp(1.8
 .saveTheDate p > span { color:var(--accent); font-size:.63rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase; }
 .saveTheDate time { color:var(--ink); font-family:Georgia,serif; font-size:clamp(1rem,2.2vw,1.22rem); letter-spacing:.02em; }
 .homePage .welcomeMessage { position:relative; max-width:470px; margin:0 auto clamp(28px,5vw,38px); color:#6e675f; font-family:Georgia,serif; font-size:clamp(1.05rem,2.2vw,1.28rem); line-height:1.65; }
+.homeActions { display:grid; gap:12px; justify-items:center; }
 .homeInfoLink { position:relative; display:inline-flex; min-height:50px; align-items:center; gap:12px; padding:13px 17px 13px 21px; border:1px solid rgba(163,75,55,.32); border-radius:999px; background:rgba(255,255,255,.62); text-decoration:none; transition:border-color .2s ease,background .2s ease,box-shadow .2s ease,transform .2s ease; }
 .homeInfoLink .linkArrow { display:grid; width:28px; height:28px; place-items:center; border-radius:50%; background:var(--accent); color:#fff; font-size:.82rem; transition:transform .2s ease; }
 .homeInfoLink:hover { border-color:var(--accent); background:#fff; box-shadow:0 9px 24px rgba(163,75,55,.13); transform:translateY(-2px); }
@@ -305,6 +306,12 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .saveRsvpButton { display:flex; width:100%; min-height:56px; align-items:center; justify-content:center; gap:10px; font-size:1rem; box-shadow:0 10px 24px rgba(163,75,55,.2); }
 .saveRsvpButton::after { content:"→"; font-size:1.15rem; transition:transform .18s ease; }
 .saveRsvpButton:hover::after { transform:translateX(3px); }
+.codeEntryForm { display:grid; gap:18px; max-width:360px; margin:0 auto; text-align:left; }
+.codeEntryForm input { margin-top:10px; padding:16px 18px; border-radius:16px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:1.55rem; font-weight:700; letter-spacing:.38em; text-align:center; text-transform:uppercase; }
+.codeEntryForm input:focus { outline:2px solid rgba(163,75,55,.18); outline-offset:2px; }
+.codeEntryError { margin:0; padding:12px 14px; border:1px solid #e4c4bd; border-radius:12px; background:#f1dfdb; color:#853b2e; text-align:center; }
+.guestCode { margin:0 0 16px; color:var(--muted); font-size:.9rem; }
+.guestCode strong { color:var(--ink); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.14em; }
 .rsvpFooter { display:grid; justify-items:stretch; gap:14px; margin-top:34px; padding-top:28px; border-top:1px solid var(--line); text-align:center; }
 .rsvpFooter .moreInfoLink { display:flex; min-height:52px; align-items:center; justify-content:center; gap:10px; margin:0; padding:12px 16px; border:1px solid #dbc9bf; border-radius:14px; background:#faf4f0; font-size:.86rem; text-decoration:none; transition:border-color .18s ease,background .18s ease,transform .18s ease; }
 .rsvpFooter .moreInfoLink:hover { border-color:#c48776; background:#fff; transform:translateY(-1px); }

@@ -1,35 +1,10 @@
 "use server";
 
-import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { createUniqueGuestTokens, isGuestToken, isTokenUniqueViolation, normalizeGuestToken } from "@/lib/guest-token";
 import { getSupabaseAdmin, InvitationCategory, RsvpStatus } from "@/lib/supabase";
 import { sendRsvpInvitation } from "@/lib/messaging";
-
-async function invitationBaseUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configuredUrl) {
-    try {
-      const url = new URL(configuredUrl);
-      const isLocalUrl = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-      if (process.env.NODE_ENV !== "production" || !isLocalUrl) return url.origin;
-    } catch {
-      // In production, fall through to the public request origin so an invalid
-      // local setting cannot leak into invitation texts.
-    }
-  }
-
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim() || requestHeaders.get("host");
-  if (host) {
-    const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0].trim();
-    const protocol = forwardedProtocol || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-    return new URL(`${protocol}://${host}`).origin;
-  }
-
-  throw new Error("Set NEXT_PUBLIC_APP_URL to the public HTTPS URL for this site.");
-}
 
 function cleanPhone(value: FormDataEntryValue | null) {
   const phone = String(value ?? "")
@@ -120,14 +95,25 @@ export async function addGuests(formData: FormData) {
     throw new Error("Choose a valid group option.");
   }
 
-  const { error } = await supabase.from("guests").insert(guests.map((guest) => ({
-    ...guest,
-    group_id: groupId,
-    token: randomBytes(32).toString("base64url"),
-  })));
-  if (error && createdGroupId) await supabase.from("guest_groups").delete().eq("id", createdGroupId);
-  if (error) throw new Error(error.code === "23505" ? "One of those phone numbers is already in the guest list." : error.message);
-  revalidatePath("/admin");
+  let insertError: { code?: string; message: string; details?: string } | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const tokens = createUniqueGuestTokens(guests.length);
+    const { error } = await supabase.from("guests").insert(guests.map((guest, index) => ({
+      ...guest,
+      group_id: groupId,
+      token: tokens[index],
+    })));
+    if (!error) {
+      revalidatePath("/admin");
+      return;
+    }
+    insertError = error;
+    if (isTokenUniqueViolation(error) && attempt < 4) continue;
+    break;
+  }
+  if (insertError && createdGroupId) await supabase.from("guest_groups").delete().eq("id", createdGroupId);
+  if (insertError?.code === "23505" && isTokenUniqueViolation(insertError)) throw new Error("Could not create unique RSVP codes. Please try again.");
+  if (insertError) throw new Error(insertError.code === "23505" ? "One of those phone numbers is already in the guest list." : insertError.message);
 }
 
 export async function createGroup(formData: FormData) {
@@ -240,19 +226,12 @@ export async function bulkGuestOperation(formData: FormData) {
   const { data: guests, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category").in("id", ids);
   if (error) return { status: "error" as const, message: "The invitation texts could not be attempted. Please try again." };
 
-  let appUrl: string;
-  try {
-    appUrl = await invitationBaseUrl();
-  } catch (error) {
-    return { status: "error" as const, message: error instanceof Error ? error.message : "The invitation URL could not be created." };
-  }
-
   const sentIds: string[] = [];
   const failures: Array<{ name: string; reason: string }> = [];
 
   for (let index = 0; index < (guests ?? []).length; index += 10) {
     const batch = (guests ?? []).slice(index, index + 10);
-    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest, appUrl)));
+    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest)));
     results.forEach((result, resultIndex) => {
       const guest = batch[resultIndex];
       if (result.status === "fulfilled") sentIds.push(guest.id);
@@ -294,8 +273,7 @@ export async function sendInvite(formData: FormData) {
   if (error || !guest) return { status: "error" as const, message: "The text could not be attempted because the guest was not found." };
 
   try {
-    const appUrl = await invitationBaseUrl();
-    await sendRsvpInvitation(guest, appUrl);
+    await sendRsvpInvitation(guest);
     const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
     revalidatePath("/admin");
     if (updateError) return { status: "success" as const, message: "Text sent, but the sent status could not be saved." };
@@ -304,6 +282,12 @@ export async function sendInvite(formData: FormData) {
     const reason = error instanceof Error ? error.message : "The messaging provider rejected the request.";
     return { status: "error" as const, message: `The text to ${guest.name} could not be sent. ${reason}` };
   }
+}
+
+export async function openRsvpByCode(formData: FormData) {
+  const code = normalizeGuestToken(String(formData.get("code") ?? ""));
+  if (!isGuestToken(code)) return { status: "error" as const, message: "Enter the 4-character code from your invitation text." };
+  redirect(`/rsvp/${code}`);
 }
 
 export async function submitRsvp(token: string, formData: FormData) {

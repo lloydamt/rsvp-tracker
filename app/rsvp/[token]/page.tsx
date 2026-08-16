@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { isGuestToken, normalizeGuestToken } from "@/lib/guest-token";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import { GroupRsvpForm } from "./group-rsvp-form";
 import { IndividualRsvpForm } from "./individual-rsvp-form";
@@ -31,9 +32,8 @@ function categoryInfoUrl(category: Guest["invitation_category"]) {
 export default async function RsvpPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { token } = await params;
   const { saved } = await searchParams;
-  // Vonage's free-tier SMS service can append "[FREE]" directly to a message.
-  // Some SMS clients then include that marker in the clickable URL.
-  const invitationToken = token.replace(/(?:\[|%5B)FREE(?:\]|%5D)?$/i, "");
+  const invitationToken = normalizeGuestToken(token);
+  if (!isGuestToken(invitationToken)) notFound();
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("guests")
@@ -76,7 +76,7 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
           />
           <footer className="rsvpFooter">
             <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
-            <p className="privacy"><span aria-hidden="true">◇</span> This private link shows only the people in your group.</p>
+            <p className="privacy"><span aria-hidden="true">◇</span> This page shows only the people in your group.</p>
           </footer>
         </section>
       </main>
@@ -98,7 +98,7 @@ export default async function RsvpPage({ params, searchParams }: { params: Promi
         <IndividualRsvpForm token={invitationToken} initialStatus={guest.status} initialNotes={guest.notes} />
         <footer className="rsvpFooter">
           <a className="moreInfoLink" href={informationUrl} target="_blank" rel="noopener noreferrer">View {invitationLabel.toLowerCase()} information <span aria-hidden="true">↗</span></a>
-          <p className="privacy"><span aria-hidden="true">◇</span> This private link shows only your invitation and response.</p>
+          <p className="privacy"><span aria-hidden="true">◇</span> This page shows only your invitation and response.</p>
         </footer>
       </section>
     </main>

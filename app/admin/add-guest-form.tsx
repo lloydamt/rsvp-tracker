@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { addGuests, type AddGuestsResult } from "@/app/actions";
 
 type InvitationCategory = "ceremony_reception" | "reception_only";
@@ -43,14 +43,29 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
     },
     null,
   );
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (result?.status !== "success") {
+      setShowSuccess(false);
+      return;
+    }
+    setShowSuccess(true);
+    const timeout = window.setTimeout(() => setShowSuccess(false), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [result]);
+
+  const dismissSuccess = () => setShowSuccess(false);
 
   const addRow = () => {
     if (rows.length >= 50) return;
+    dismissSuccess();
     setRows((current) => [...current, emptyRow(nextRowId)]);
     setNextRowId((current) => current + 1);
   };
 
   const updateRow = (id: number, patch: Partial<GuestRow>) => {
+    dismissSuccess();
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
@@ -89,7 +104,10 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
               type="button"
               aria-label={`Remove guest ${index + 1}`}
               disabled={isPending || rows.length === 1}
-              onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
+              onClick={() => {
+                dismissSuccess();
+                setRows((current) => current.filter((item) => item.id !== row.id));
+              }}
             >×</button>
           </div>
         ))}
@@ -104,6 +122,7 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
             name="existing_group_id"
             value={selectedGroupId}
             onChange={(event) => {
+              dismissSuccess();
               setSelectedGroupId(event.target.value);
               setGroupMode(event.target.value ? "existing" : "none");
             }}
@@ -112,14 +131,16 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
             <option value="">No group</option>
             {groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
-          <button className="secondary" type="button" onClick={() => setGroupMode("new")}>Create new group</button>
+          <button className="secondary" type="button" onClick={() => { dismissSuccess(); setGroupMode("new"); }}>Create new group</button>
         </div>}
         {groupMode === "new" && <div className="groupSelectRow">
           <input name="new_group_name" required maxLength={100} placeholder="e.g. University friends" aria-label="New group name" autoFocus />
-          <button className="secondary" type="button" onClick={() => setGroupMode(selectedGroupId ? "existing" : "none")}>Use existing</button>
+          <button className="secondary" type="button" onClick={() => { dismissSuccess(); setGroupMode(selectedGroupId ? "existing" : "none"); }}>Use existing</button>
         </div>}
       </fieldset>
-      {result && <p className={`addGuestFeedback ${result.status}`} role={result.status === "error" ? "alert" : "status"}>{result.message}</p>}
+      {result && (result.status === "error" || showSuccess) && (
+        <p className={`addGuestFeedback ${result.status}`} role={result.status === "error" ? "alert" : "status"}>{result.message}</p>
+      )}
       <div className="addGuestSubmit"><button type="submit" disabled={isPending}>{isPending ? "Saving…" : `Save ${rows.length} guest${rows.length === 1 ? "" : "s"}`}</button></div>
     </form>
   );

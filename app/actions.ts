@@ -75,6 +75,12 @@ async function deleteGroupsWithoutMembers(groupIds: Array<string | null>) {
   if (groupError) throw new Error(groupError.message);
 }
 
+async function nextSortOrder(table: "guests" | "guest_groups") {
+  const { data, error } = await getSupabaseAdmin().from(table).select("sort_order").order("sort_order", { ascending: false }).limit(1);
+  if (error) throw new Error(error.message);
+  return ((data ?? [])[0]?.sort_order ?? -1) + 1;
+}
+
 export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
   try {
     const names = formData.getAll("guest_name");
@@ -173,7 +179,7 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
       if (!batchHasPhone) return { status: "error", message: "Add a phone number for at least one guest in this group." };
       try {
         const groupName = cleanGroupName(formData.get("new_group_name"));
-        const { data: group, error } = await supabase.from("guest_groups").insert({ name: groupName }).select("id").single();
+        const { data: group, error } = await supabase.from("guest_groups").insert({ name: groupName, sort_order: await nextSortOrder("guest_groups") }).select("id").single();
         if (error) return { status: "error", message: groupErrorMessage(error) };
         groupId = group.id;
         createdGroupId = group.id;
@@ -185,12 +191,14 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
     }
 
     let insertError: { code?: string; message: string; details?: string } | null = null;
+    const firstSortOrder = await nextSortOrder("guests");
     for (let attempt = 0; attempt < 5; attempt++) {
       const tokens = createUniqueGuestTokens(guests.length);
       const { error } = await supabase.from("guests").insert(guests.map((guest, index) => ({
         ...guest,
         group_id: groupId,
         token: tokens[index],
+        sort_order: firstSortOrder + index,
       })));
       if (!error) {
         revalidatePath("/admin");
@@ -221,8 +229,41 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
 
 export async function createGroup(formData: FormData) {
   const name = cleanGroupName(formData.get("name"));
-  const { error } = await getSupabaseAdmin().from("guest_groups").insert({ name });
+  const { error } = await getSupabaseAdmin().from("guest_groups").insert({ name, sort_order: await nextSortOrder("guest_groups") });
   if (error) throw new Error(groupErrorMessage(error));
+  revalidatePath("/admin");
+}
+
+export async function reorderGroups(ids: string[]) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0 || uniqueIds.length !== ids.length) throw new Error("Those groups could not be reordered.");
+
+  const supabase = getSupabaseAdmin();
+  const { data: groups, error } = await supabase.from("guest_groups").select("id").in("id", uniqueIds);
+  if (error) throw new Error(error.message);
+  if ((groups ?? []).length !== uniqueIds.length) throw new Error("Those groups could not be reordered.");
+
+  for (const [index, id] of uniqueIds.entries()) {
+    const { error: updateError } = await supabase.from("guest_groups").update({ sort_order: index }).eq("id", id);
+    if (updateError) throw new Error(updateError.message);
+  }
+  revalidatePath("/admin");
+}
+
+export async function reorderUngroupedGuests(ids: string[]) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0 || uniqueIds.length !== ids.length) throw new Error("Those guests could not be reordered.");
+
+  const supabase = getSupabaseAdmin();
+  const { data: guests, error } = await supabase.from("guests").select("id,group_id").in("id", uniqueIds);
+  if (error) throw new Error(error.message);
+  if ((guests ?? []).length !== uniqueIds.length) throw new Error("Those guests could not be reordered.");
+  if ((guests ?? []).some((guest) => guest.group_id)) throw new Error("Only ungrouped guests can be rearranged.");
+
+  for (const [index, id] of uniqueIds.entries()) {
+    const { error: updateError } = await supabase.from("guests").update({ sort_order: index }).eq("id", id);
+    if (updateError) throw new Error(updateError.message);
+  }
   revalidatePath("/admin");
 }
 

@@ -172,6 +172,8 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .listHeading h2 { margin:0; font-size:1.15rem; }
 .listHeading span { color:var(--muted); font-size:.76rem; }
 .listHeading a { color:var(--accent); font-size:.78rem; font-weight:800; text-decoration:none; }
+.listHeadingMeta { display:flex; align-items:baseline; gap:12px; }
+.reorderHint { margin:0; color:var(--muted); font-size:.76rem; }
 
 .bulkBar { top:12px; min-height:56px; margin:0 0 14px; padding:8px 10px 8px 15px; border-radius:14px; }
 .bulkBar > form { position:relative; align-items:center; flex-wrap:nowrap; }
@@ -248,6 +250,16 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .groupSelectWrap { display:grid; align-self:center; place-items:center; }
 .groupMembers { display:grid; gap:6px; padding:8px 10px 10px 22px; border-top:1px solid #e3dced; background:#f4eff8; }
 .groupMembers .guestCard { box-shadow:none; }
+.sortableList { display:grid; gap:8px; }
+.sortableItem { min-width:0; }
+.sortableItem.isDragging { opacity:.55; }
+.sortableItem.dropTarget :is(.guestCard,.groupCard) { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.dragHandle { display:grid; width:22px; height:32px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--muted); place-items:center; cursor:grab; touch-action:none; user-select:none; }
+.dragHandle svg { display:block; fill:currentColor; }
+.dragHandle:hover,.dragHandle:focus-visible { background:rgba(59,45,31,.06); color:var(--ink); outline:none; }
+.dragHandle:active { cursor:grabbing; }
+.dragHandle[aria-disabled="true"] { cursor:not-allowed; opacity:.35; }
+.guestSummary.sortable,.groupSummary.sortable { grid-template-columns:auto auto minmax(180px,1fr) minmax(330px,1.35fr) auto; }
 .addGuestHint { margin:0; color:#5d4b7d; font-size:.76rem; }
 .addGroupMemberForm { display:grid; grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) minmax(160px,1fr) auto; align-items:end; gap:10px; padding:12px; border:1px dashed #c9b9df; border-radius:12px; background:rgba(255,255,255,.72); }
 .addGroupMemberForm.hasError { border-color:#d9aaa1; background:#fdf6f4; }
@@ -260,6 +272,8 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 @media (max-width:800px) {
   .container { padding:32px 16px 56px; }
   .pageHeader { flex-direction:row; align-items:end; }
+  .listHeading { flex-wrap:wrap; align-items:baseline; }
+  .listHeadingMeta { flex-wrap:wrap; justify-content:flex-end; }
   .guestFilters .responseStat { display:flex; flex-direction:column; align-items:flex-start; padding:15px 12px; }
   .guestFilters .responseStat strong { font-size:1.35rem; }
   .guestFilters .responseStat span { font-size:.7rem; }
@@ -291,18 +305,24 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .organizePopover .mobileUngroupAction { display:block; width:100%; margin-top:8px; color:#7a5428; }
   .guestSummary { grid-template-columns:auto minmax(0,1fr) auto; gap:8px 12px; }
   .guestSummary.preview { grid-template-columns:minmax(0,1fr) auto; }
+  .guestSummary.sortable { grid-template-columns:auto auto minmax(0,1fr) auto; }
   .guestResponse { grid-column:2; grid-template-columns:auto minmax(0,1fr); gap:9px; }
   .guestSummary.preview .guestResponse { grid-column:1; }
+  .guestSummary.sortable .guestResponse { grid-column:3; }
   .guestSummary::after { grid-column:3; grid-row:1 / 3; }
   .guestSummary.preview::after { grid-column:2; }
+  .guestSummary.sortable::after { grid-column:4; }
   .guestMeta { font-size:.69rem; }
   .statusLabel { font-size:.69rem; }
   .groupSummary { grid-template-columns:auto minmax(0,1fr) auto; gap:8px 12px; }
   .groupSummary.preview { grid-template-columns:minmax(0,1fr) auto; }
+  .groupSummary.sortable { grid-template-columns:auto auto minmax(0,1fr) auto; }
   .groupResponse { grid-column:2; }
   .groupSummary.preview .groupResponse { grid-column:1; }
+  .groupSummary.sortable .groupResponse { grid-column:3; }
   .groupSummary::after { grid-column:3; grid-row:1 / 3; }
   .groupSummary.preview::after { grid-column:2; }
+  .groupSummary.sortable::after { grid-column:4; }
   .groupMembers { padding-left:12px; }
   .addGroupMemberForm { grid-template-columns:1fr; }
 }

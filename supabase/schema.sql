@@ -3,7 +3,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.guest_groups (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 100),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  sort_order integer not null default 0
 );
 
 create unique index if not exists guest_groups_normalized_name_idx
@@ -22,6 +23,7 @@ create table if not exists public.guests (
   message_sent_at timestamptz,
   responded_at timestamptz,
   created_at timestamptz not null default now(),
+  sort_order integer not null default 0,
   constraint guests_ungrouped_require_phone check (group_id is not null or phone is not null)
 );
 

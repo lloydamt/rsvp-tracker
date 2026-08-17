@@ -1,22 +1,24 @@
 import { GUEST_TOKEN_ALPHABET } from "@/lib/guest-token";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
+import { reorderGroups, reorderUngroupedGuests } from "@/app/actions";
 import { BulkActions } from "./bulk-actions";
 import { AddGuestForm } from "./add-guest-form";
 import { GuestCard } from "./guest-card";
 import { GuestGroupCard } from "./guest-group-card";
 import { GroupManager } from "./group-manager";
+import { SortableItem, SortableList } from "./sortable-list";
 
 export const dynamic = "force-dynamic";
 
 const filters = ["attending", "pending", "declined"] as const;
 
-type GuestGroup = { id: string; name: string; created_at: string };
+type GuestGroup = { id: string; name: string; created_at: string; sort_order: number };
 
 const previewGroups: GuestGroup[] = [
-  { id: "preview-group-1", name: "Bride's family", created_at: new Date(Date.now() - 180_000).toISOString() },
-  { id: "preview-group-2", name: "Groom's family", created_at: new Date(Date.now() - 120_000).toISOString() },
-  { id: "preview-group-3", name: "University friends", created_at: new Date(Date.now() - 60_000).toISOString() },
+  { id: "preview-group-1", name: "Bride's family", created_at: new Date(Date.now() - 180_000).toISOString(), sort_order: 0 },
+  { id: "preview-group-2", name: "Groom's family", created_at: new Date(Date.now() - 120_000).toISOString(), sort_order: 1 },
+  { id: "preview-group-3", name: "University friends", created_at: new Date(Date.now() - 60_000).toISOString(), sort_order: 2 },
 ];
 
 function previewToken(index: number) {
@@ -48,6 +50,7 @@ function createPreviewGuests(count: number): Guest[] {
       message_sent_at: index % 5 === 0 ? null : new Date(Date.now() - index * 60_000).toISOString(),
       responded_at: status === "pending" ? null : new Date(Date.now() - index * 60_000).toISOString(),
       created_at: new Date(Date.now() - index * 60_000).toISOString(),
+      sort_order: index,
     };
   });
 }
@@ -64,10 +67,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     guests = createPreviewGuests(300);
     groups = previewGroups;
   } else {
-    const { data, error } = await getSupabaseAdmin().from("guests").select("*").order("created_at", { ascending: false });
+    const supabase = getSupabaseAdmin();
+    const [{ data, error }, { data: storedGroups, error: groupsError }] = await Promise.all([
+      supabase.from("guests").select("*").order("sort_order", { ascending: true }).order("name", { ascending: true }),
+      supabase.from("guest_groups").select("id,name,created_at,sort_order").order("name"),
+    ]);
     if (error) throw new Error(error.message);
     guests = (data ?? []) as Guest[];
-    const { data: storedGroups, error: groupsError } = await getSupabaseAdmin().from("guest_groups").select("id,name,created_at").order("name");
     if (groupsError) throw new Error(groupsError.message);
     groups = storedGroups ?? [];
   }
@@ -91,8 +97,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       members: visibleGuests.filter((guest) => guest.group_id === group.id),
     }))
     .filter((group) => group.members.length > 0)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at) || a.name.localeCompare(b.name));
-  const ungroupedGuests = visibleGuests.filter((guest) => !guest.group_id);
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  const ungroupedGuests = visibleGuests
+    .filter((guest) => !guest.group_id)
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  const filtersActive = Boolean(activeStatus || activeCategory);
   const filterHref = ({ status, category }: { status?: typeof activeStatus; category?: typeof activeCategory }) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
@@ -147,7 +156,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <div className="listHeading">
         <div><h2>Guests</h2><span>{visibleGuests.length} shown</span></div>
-        {(activeStatus || activeCategory) && <Link href={filterHref({})}>Clear filters</Link>}
+        {filtersActive && (
+          <div className="listHeadingMeta">
+            {!isPreview && <span className="reorderHint">Clear filters to rearrange the list.</span>}
+            <Link href={filterHref({})}>Clear filters</Link>
+          </div>
+        )}
       </div>
 
       {!isPreview && visibleGuests.length > 0 && <BulkActions groups={managedGroups} />}
@@ -155,12 +169,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <section className="guestList">
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
         {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match this response filter.</div>}
-        {visibleGroups.map((group) => (
+        {isPreview ? visibleGroups.map((group) => (
           <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} />
-        ))}
-        {ungroupedGuests.map((guest) => (
+        )) : (
+          <SortableList persist={reorderGroups} disabled={filtersActive}>
+            {visibleGroups.map((group) => (
+              <SortableItem key={group.id} id={group.id}>
+                <GuestGroupCard id={group.id} name={group.name} members={group.members} isPreview={isPreview} sortable />
+              </SortableItem>
+            ))}
+          </SortableList>
+        )}
+        {isPreview ? ungroupedGuests.map((guest) => (
           <GuestCard key={guest.id} guest={guest} isPreview={isPreview} />
-        ))}
+        )) : (
+          <SortableList persist={reorderUngroupedGuests} disabled={filtersActive}>
+            {ungroupedGuests.map((guest) => (
+              <SortableItem key={guest.id} id={guest.id}>
+                <GuestCard guest={guest} isPreview={isPreview} sortable />
+              </SortableItem>
+            ))}
+          </SortableList>
+        )}
       </section>
     </main>
   );

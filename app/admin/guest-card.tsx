@@ -2,21 +2,25 @@ import { Guest } from "@/lib/supabase";
 import { DeleteGuestForm } from "./delete-guest-form";
 import { GuestEditForm } from "./guest-edit-form";
 import { SendInviteForm } from "./send-invite-form";
+import { DragHandle } from "./sortable-list";
 
 export function GuestCard({
   guest,
   isPreview,
   groupName,
   hideGroupName = false,
+  sortable = false,
 }: {
   guest: Guest;
   isPreview: boolean;
   groupName?: string | null;
   hideGroupName?: boolean;
+  sortable?: boolean;
 }) {
   return (
     <details className="guestCard">
-      <summary className={`guestSummary ${isPreview ? "preview" : ""}`}>
+      <summary className={`guestSummary${isPreview ? " preview" : ""}${sortable ? " sortable" : ""}`}>
+        {sortable && <DragHandle id={guest.id} label={guest.name} />}
         {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
         <span className="guestIdentity"><strong>{guest.name}</strong><span className={guest.phone ? undefined : "noPhone"}>{guest.phone ?? "No phone"}</span></span>
         <span className="guestResponse">

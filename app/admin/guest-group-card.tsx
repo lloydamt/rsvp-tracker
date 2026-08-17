@@ -2,6 +2,7 @@ import { Guest } from "@/lib/supabase";
 import { AddGroupMemberForm } from "./add-group-member-form";
 import { GuestCard } from "./guest-card";
 import { GroupSelectCheckbox } from "./group-select-checkbox";
+import { DragHandle } from "./sortable-list";
 
 function rsvpParts(members: Guest[]) {
   const attending = members.filter((guest) => guest.status === "attending").length;
@@ -19,18 +20,21 @@ export function GuestGroupCard({
   name,
   members,
   isPreview,
+  sortable = false,
 }: {
   id: string;
   name: string;
   members: Guest[];
   isPreview: boolean;
+  sortable?: boolean;
 }) {
   const breakdown = rsvpParts(members);
   const defaultInvitationCategory = members[0]?.invitation_category ?? "ceremony_reception";
 
   return (
     <details className="groupCard">
-      <summary className={`groupSummary ${isPreview ? "preview" : ""}`}>
+      <summary className={`groupSummary${isPreview ? " preview" : ""}${sortable ? " sortable" : ""}`}>
+        {sortable && <DragHandle id={id} label={name} />}
         {!isPreview && <GroupSelectCheckbox groupName={name} guestIds={members.map((guest) => guest.id)} />}
         <span className="groupIdentity">
           <strong>{name}</strong>

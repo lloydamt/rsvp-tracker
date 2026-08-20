@@ -1,6 +1,6 @@
 # Private RSVP Tracker
 
-A small Next.js app that stores guests in Supabase and sends each guest a unique RSVP code via SMS.
+A small Next.js app that stores guests in Supabase and sends each guest a unique RSVP link and code via SMS.
 
 ## Set up
 
@@ -14,7 +14,7 @@ A small Next.js app that stores guests in Supabase and sends each guest a unique
    npm run dev
    ```
 
-5. Visit `/admin`. The browser will ask for `ADMIN_USERNAME` and `ADMIN_PASSWORD`. Add guests using a UK number beginning with `0` or `+44`, then send their texts. Numbers beginning with `0` are converted to `+44` before being stored. Guests enter their 4-character code at `/rsvp`.
+5. Visit `/admin`. The browser will ask for `ADMIN_USERNAME` and `ADMIN_PASSWORD`. Add guests using a UK number beginning with `0` or `+44`, then send their texts. Numbers beginning with `0` are converted to `+44` before being stored. Invitation texts include a tap-to-open `/rsvp/{code}` link and the 4-character code. Guests who prefer to type the code can still enter it at `/rsvp`. Set `NEXT_PUBLIC_APP_URL` to the public HTTPS origin Vonage has whitelisted (not localhost in production).
 
 If the database was created before guest grouping was added, run `supabase/migrations/202608070001_add_guest_groups.sql` once in the Supabase SQL Editor. Then run `supabase/migrations/202608120001_unique_guest_group_names.sql` to enforce case-insensitive unique group names. Groups can be created and managed independently from the admin dashboard, and guests can be assigned while being created or through bulk actions. Any member's RSVP code can then RSVP for themselves, selected group members, or the entire group.
 
@@ -34,4 +34,4 @@ Treat RSVP codes like private invitations: anyone who receives or forwards a cod
 
 ## Messaging providers
 
-All outbound messages use the `MessagingService` interface in `lib/messaging/messaging-service.ts`. `getMessagingService()` selects the Vonage implementation by default, or Twilio when `MESSAGING_PROVIDER=twilio`; the admin actions do not depend on either vendor. To add another provider, implement `MessagingService` and register it in `lib/messaging/index.ts`. Invitation texts include the guest's RSVP code and do not include a URL.
+All outbound messages use the `MessagingService` interface in `lib/messaging/messaging-service.ts`. `getMessagingService()` selects the Vonage implementation by default, or Twilio when `MESSAGING_PROVIDER=twilio`; the admin actions do not depend on either vendor. To add another provider, implement `MessagingService` and register it in `lib/messaging/index.ts`. Invitation texts include the guest's RSVP link (`/rsvp/{code}`) and the 4-character code as a backup.

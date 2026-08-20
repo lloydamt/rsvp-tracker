@@ -1,12 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createUniqueGuestTokens, isGuestToken, isTokenUniqueViolation, normalizeGuestToken } from "@/lib/guest-token";
 import { getSupabaseAdmin, InvitationCategory, RsvpStatus } from "@/lib/supabase";
 import { sendRsvpInvitation } from "@/lib/messaging";
 
 const invalidUkPhoneMessage = "Enter a UK number such as 07700900123 or +447700900123.";
+
+async function invitationBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configuredUrl) {
+    try {
+      const url = new URL(configuredUrl);
+      const isLocalUrl = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+      if (process.env.NODE_ENV !== "production" || !isLocalUrl) return url.origin;
+    } catch {
+      // In production, fall through to the public request origin so an invalid
+      // local setting cannot leak into invitation texts.
+    }
+  }
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim() || requestHeaders.get("host");
+  if (host) {
+    const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0].trim();
+    const protocol = forwardedProtocol || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+    return new URL(`${protocol}://${host}`).origin;
+  }
+
+  throw new Error("Set NEXT_PUBLIC_APP_URL to the public HTTPS URL for this site.");
+}
 
 export type AddGuestsResult = {
   status: "success" | "error";
@@ -433,12 +458,19 @@ export async function bulkGuestOperation(formData: FormData) {
     return { status: "error" as const, message: "None of the selected guests have a phone number." };
   }
 
+  let appUrl: string;
+  try {
+    appUrl = await invitationBaseUrl();
+  } catch (error) {
+    return { status: "error" as const, message: error instanceof Error ? error.message : "The invitation URL could not be created." };
+  }
+
   const sentIds: string[] = [];
   const failures: Array<{ name: string; reason: string }> = [];
 
   for (let index = 0; index < reachable.length; index += 10) {
     const batch = reachable.slice(index, index + 10);
-    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest)));
+    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest, appUrl)));
     results.forEach((result, resultIndex) => {
       const guest = batch[resultIndex];
       if (result.status === "fulfilled") sentIds.push(guest.id);
@@ -482,7 +514,8 @@ export async function sendInvite(formData: FormData) {
   if (!guest.phone) return { status: "error" as const, message: "This guest has no phone number. Send the invitation to a group member who has one." };
 
   try {
-    await sendRsvpInvitation({ ...guest, phone: guest.phone });
+    const appUrl = await invitationBaseUrl();
+    await sendRsvpInvitation({ ...guest, phone: guest.phone }, appUrl);
     const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
     revalidatePath("/admin");
     if (updateError) return { status: "success" as const, message: "Text sent, but the sent status could not be saved." };

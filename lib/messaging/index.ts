@@ -12,12 +12,22 @@ export function getMessagingService(): MessagingService {
   throw new Error(`Unsupported messaging provider: ${provider}. Use twilio or vonage.`);
 }
 
-export async function sendRsvpInvitation(guest: { name: string; phone: string; token: string; invitation_category: InvitationCategory }) {
+export async function sendRsvpInvitation(guest: { name: string; phone: string; token: string; invitation_category: InvitationCategory }, appUrl?: string) {
+  const configuredUrl = appUrl || process.env.NEXT_PUBLIC_APP_URL;
+  if (!configuredUrl) throw new Error("NEXT_PUBLIC_APP_URL is missing.");
+
+  let inviteUrl: URL;
+  try {
+    inviteUrl = new URL(`/rsvp/${encodeURIComponent(guest.token)}`, configuredUrl);
+  } catch {
+    throw new Error("NEXT_PUBLIC_APP_URL must be a valid absolute URL.");
+  }
+
   return getMessagingService().send({
     to: guest.phone,
     body: guest.invitation_category === "ceremony_reception"
-      ? `Hi ${guest.name}! You are invited to our ceremony and reception. Your RSVP code is ${guest.token}.`
-      : `Hi ${guest.name}! You are invited to our reception. Your RSVP code is ${guest.token}.`,
+      ? `Hi ${guest.name}! You are invited to our ceremony and reception. Please RSVP here: ${inviteUrl.toString()} Your RSVP code is ${guest.token}.`
+      : `Hi ${guest.name}! You are invited to our reception. Please RSVP here: ${inviteUrl.toString()} Your RSVP code is ${guest.token}.`,
   });
 }
 

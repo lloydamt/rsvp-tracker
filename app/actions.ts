@@ -6,8 +6,7 @@ import { redirect } from "next/navigation";
 import { createUniqueGuestTokens, isGuestToken, isTokenUniqueViolation, normalizeGuestToken } from "@/lib/guest-token";
 import { getSupabaseAdmin, InvitationCategory, RsvpStatus } from "@/lib/supabase";
 import { sendRsvpInvitation } from "@/lib/messaging";
-
-const invalidUkPhoneMessage = "Enter a UK number such as 07700900123 or +447700900123.";
+import { inviteDestination, isSmsViaRecipient, isUkPhone, parseGuestPhone } from "@/lib/phone";
 
 async function invitationBaseUrl() {
   const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -39,15 +38,52 @@ export type AddGuestsResult = {
   phoneErrors?: string[];
 };
 
-function parseUkPhone(value: FormDataEntryValue | null) {
-  const phone = String(value ?? "")
-    .trim()
-    .replace(/[\s()-]/g, "");
+function cleanSmsViaGuestId(value: FormDataEntryValue | null) {
+  const id = String(value ?? "").trim();
+  return id || null;
+}
 
-  if (!phone) return { ok: true as const, phone: null };
-  if (/^0\d{10}$/.test(phone)) return { ok: true as const, phone: `+44${phone.slice(1)}` };
-  if (/^\+44\d{10}$/.test(phone)) return { ok: true as const, phone };
-  return { ok: false as const, error: invalidUkPhoneMessage };
+function isSmsViaForeignKeyViolation(error: { code?: string; message?: string; details?: string }) {
+  if (error.code !== "23503") return false;
+  return /sms_via/i.test(`${error.message ?? ""} ${error.details ?? ""}`);
+}
+
+const smsViaRecipientInUseMessage = "Reassign international guests who receive texts via this person first.";
+
+type SmsViaGuest = { id: string; name: string; phone: string | null; sms_via_guest_id: string | null };
+
+async function loadSmsViaGuests(ids: string[]) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return new Map<string, SmsViaGuest>();
+  const { data, error } = await getSupabaseAdmin().from("guests").select("id,name,phone,sms_via_guest_id").in("id", uniqueIds);
+  if (error) throw new Error(error.message);
+  return new Map((data ?? []).map((guest) => [guest.id, guest]));
+}
+
+async function resolveSavedSmsVia(phone: string | null, smsViaGuestId: string | null, exceptId?: string) {
+  if (!phone) return null;
+  if (!smsViaGuestId) {
+    if (isUkPhone(phone)) return null;
+    throw new Error("Choose a guest with a UK number to receive this invitation text.");
+  }
+  if (smsViaGuestId === exceptId) throw new Error("A guest cannot receive their own invitation texts.");
+  const viaGuests = await loadSmsViaGuests([smsViaGuestId]);
+  const viaGuest = viaGuests.get(smsViaGuestId);
+  if (!viaGuest || !isSmsViaRecipient(viaGuest)) {
+    throw new Error("Choose a guest with a UK number to receive this invitation text.");
+  }
+  return viaGuest.id;
+}
+
+async function assertNotSmsViaRecipient(ids: string[], exceptIds: string[] = []) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.from("guests").select("id,name,sms_via_guest_id").in("sms_via_guest_id", uniqueIds);
+  if (error) throw new Error(error.message);
+  const excluded = new Set(exceptIds);
+  const blocking = (data ?? []).filter((guest) => !excluded.has(guest.id));
+  if (blocking.length > 0) throw new Error(smsViaRecipientInUseMessage);
 }
 
 async function groupHasPhone(
@@ -111,19 +147,26 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
     const names = formData.getAll("guest_name");
     const phones = formData.getAll("guest_phone");
     const categories = formData.getAll("guest_invitation_category");
-    if (names.length === 0 || names.length > 50 || phones.length !== names.length || categories.length !== names.length) {
+    const smsViaIds = formData.getAll("guest_sms_via_guest_id");
+    if (
+      names.length === 0
+      || names.length > 50
+      || phones.length !== names.length
+      || categories.length !== names.length
+      || smsViaIds.length !== names.length
+    ) {
       return { status: "error", message: "Add between 1 and 50 guests at a time." };
     }
 
     const phoneErrors = Array.from({ length: names.length }, () => "");
-    const guests: { name: string; phone: string | null; invitation_category: InvitationCategory }[] = [];
+    const guests: { name: string; phone: string | null; invitation_category: InvitationCategory; sms_via_guest_id: string | null }[] = [];
     const messages: string[] = [];
 
     for (let index = 0; index < names.length; index++) {
       const name = String(names[index]).trim();
       if (!name || name.length > 100) messages.push(`Enter a name under 100 characters for guest ${index + 1}.`);
 
-      const parsedPhone = parseUkPhone(phones[index]);
+      const parsedPhone = parseGuestPhone(phones[index]);
       if (!parsedPhone.ok) phoneErrors[index] = parsedPhone.error;
 
       let invitationCategory: InvitationCategory | null = null;
@@ -137,6 +180,7 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
         name,
         phone: parsedPhone.ok ? parsedPhone.phone : null,
         invitation_category: invitationCategory ?? "ceremony_reception",
+        sms_via_guest_id: cleanSmsViaGuestId(smsViaIds[index]),
       });
     }
 
@@ -161,6 +205,32 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
         const phone = guests[index].phone;
         if (!phone || !existingPhones.has(phone)) continue;
         phoneErrors[index] = "This phone number is already in the guest list.";
+      }
+    }
+
+    const requestedViaIds = [...new Set(guests.map((guest) => guest.sms_via_guest_id).filter((id): id is string => Boolean(id)))];
+    let viaById = new Map<string, SmsViaGuest>();
+    if (requestedViaIds.length > 0) {
+      try {
+        viaById = await loadSmsViaGuests(requestedViaIds);
+      } catch (error) {
+        return { status: "error", message: error instanceof Error ? error.message : "Those guests could not be saved. Please try again." };
+      }
+    }
+    for (let index = 0; index < guests.length; index++) {
+      if (phoneErrors[index]) continue;
+      const guest = guests[index];
+      if (!guest.phone) {
+        guest.sms_via_guest_id = null;
+        continue;
+      }
+      if (!guest.sms_via_guest_id) {
+        if (!isUkPhone(guest.phone)) phoneErrors[index] = "Choose a guest with a UK number to receive this invitation text.";
+        continue;
+      }
+      const viaGuest = viaById.get(guest.sms_via_guest_id);
+      if (!viaGuest || !isSmsViaRecipient(viaGuest)) {
+        phoneErrors[index] = "Choose a guest with a UK number to receive this invitation text.";
       }
     }
 
@@ -320,8 +390,9 @@ export async function deleteGroup(formData: FormData) {
 export async function updateGuest(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const parsedPhone = parseUkPhone(formData.get("phone"));
+  const parsedPhone = parseGuestPhone(formData.get("phone"));
   const invitationCategory = cleanInvitationCategory(formData.get("invitation_category"));
+  const requestedSmsViaGuestId = cleanSmsViaGuestId(formData.get("sms_via_guest_id"));
   if (!id) throw new Error("Guest not found.");
   if (!name || name.length > 100) throw new Error("Enter a guest name under 100 characters.");
   if (!parsedPhone.ok) throw new Error(parsedPhone.error);
@@ -337,9 +408,18 @@ export async function updateGuest(formData: FormData) {
     }
   }
 
+  const { count, error: dependentsError } = await supabase.from("guests").select("id", { count: "exact", head: true }).eq("sms_via_guest_id", id);
+  if (dependentsError) throw new Error(dependentsError.message);
+  if ((count ?? 0) > 0) {
+    if (requestedSmsViaGuestId) throw new Error("Reassign guests who receive texts via this person before sending their texts elsewhere.");
+    if (!isUkPhone(parsedPhone.phone)) throw new Error("Reassign guests who receive texts via this person before changing this number.");
+  }
+
+  const smsViaGuestId = await resolveSavedSmsVia(parsedPhone.phone, requestedSmsViaGuestId, id);
+
   const { data, error } = await supabase
     .from("guests")
-    .update({ name, phone: parsedPhone.phone, invitation_category: invitationCategory })
+    .update({ name, phone: parsedPhone.phone, invitation_category: invitationCategory, sms_via_guest_id: smsViaGuestId })
     .eq("id", id)
     .select("id")
     .maybeSingle();
@@ -364,13 +444,15 @@ export async function deleteGuest(formData: FormData) {
     }
   }
 
+  await assertNotSmsViaRecipient([id]);
+
   const { data, error } = await supabase
     .from("guests")
     .delete()
     .eq("id", id)
     .select("id,group_id")
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(isSmsViaForeignKeyViolation(error) ? smsViaRecipientInUseMessage : error.message);
   if (!data) throw new Error("Guest not found.");
   await deleteGroupsWithoutMembers([data.group_id]);
   revalidatePath("/admin");
@@ -441,21 +523,36 @@ export async function bulkGuestOperation(formData: FormData) {
       });
       if (groupWouldLoseContact) throw new Error("Add a phone number to another group member before deleting the last contact in the group.");
     }
+    await assertNotSmsViaRecipient(ids, ids);
+    const { error: clearViaError } = await supabase.from("guests").update({ sms_via_guest_id: null }).in("id", ids);
+    if (clearViaError) throw new Error(clearViaError.message);
     const { error } = await supabase.from("guests").delete().in("id", ids);
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(isSmsViaForeignKeyViolation(error) ? smsViaRecipientInUseMessage : error.message);
     await deleteGroupsWithoutMembers((selectedGuests ?? []).map((guest) => guest.group_id));
     revalidatePath("/admin");
     return;
   }
 
   if (operation !== "send") throw new Error("Invalid bulk operation.");
-  const { data: guests, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category").in("id", ids);
+  const { data: guests, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category,sms_via_guest_id").in("id", ids);
   if (error) return { status: "error" as const, message: "The invitation texts could not be attempted. Please try again." };
 
-  const reachable = (guests ?? []).filter((guest): guest is typeof guest & { phone: string } => Boolean(guest.phone));
-  const skippedNames = (guests ?? []).filter((guest) => !guest.phone).map((guest) => guest.name);
+  let viaById: Map<string, SmsViaGuest>;
+  try {
+    viaById = await loadSmsViaGuests((guests ?? []).map((guest) => guest.sms_via_guest_id).filter((id): id is string => Boolean(id)));
+  } catch (loadError) {
+    return { status: "error" as const, message: loadError instanceof Error ? loadError.message : "The invitation texts could not be attempted. Please try again." };
+  }
+
+  const reachable: Array<{ guest: NonNullable<typeof guests>[number]; phone: string; viaName: string | null }> = [];
+  const skippedNames: string[] = [];
+  for (const guest of guests ?? []) {
+    const resolved = inviteDestination(guest, guest.sms_via_guest_id ? viaById.get(guest.sms_via_guest_id) : null);
+    if (resolved.ok) reachable.push({ guest, phone: resolved.destination.phone, viaName: resolved.destination.viaName });
+    else skippedNames.push(guest.name);
+  }
   if (reachable.length === 0) {
-    return { status: "error" as const, message: "None of the selected guests have a phone number." };
+    return { status: "error" as const, message: "None of the selected guests can be texted." };
   }
 
   let appUrl: string;
@@ -470,12 +567,12 @@ export async function bulkGuestOperation(formData: FormData) {
 
   for (let index = 0; index < reachable.length; index += 10) {
     const batch = reachable.slice(index, index + 10);
-    const results = await Promise.allSettled(batch.map((guest) => sendRsvpInvitation(guest, appUrl)));
+    const results = await Promise.allSettled(batch.map((item) => sendRsvpInvitation({ ...item.guest, phone: item.phone }, appUrl)));
     results.forEach((result, resultIndex) => {
-      const guest = batch[resultIndex];
-      if (result.status === "fulfilled") sentIds.push(guest.id);
+      const item = batch[resultIndex];
+      if (result.status === "fulfilled") sentIds.push(item.guest.id);
       else failures.push({
-        name: guest.name,
+        name: item.guest.name,
         reason: result.reason instanceof Error ? result.reason.message : "The messaging provider rejected the request.",
       });
     });
@@ -491,7 +588,7 @@ export async function bulkGuestOperation(formData: FormData) {
     }
   }
   revalidatePath("/admin");
-  const skippedSummary = skippedNames.length > 0 ? ` Skipped ${skippedNames.length} without a phone number: ${skippedNames.join(", ")}.` : "";
+  const skippedSummary = skippedNames.length > 0 ? ` Skipped ${skippedNames.length} who cannot be texted: ${skippedNames.join(", ")}.` : "";
   if (failures.length > 0) {
     const sentSummary = sentIds.length > 0 ? `${sentIds.length} sent. ` : "";
     const reasons = [...new Set(failures.map((failure) => failure.reason))];
@@ -509,16 +606,27 @@ export async function bulkGuestOperation(formData: FormData) {
 export async function sendInvite(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const supabase = getSupabaseAdmin();
-  const { data: guest, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category").eq("id", id).single();
+  const { data: guest, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category,sms_via_guest_id").eq("id", id).single();
   if (error || !guest) return { status: "error" as const, message: "The text could not be attempted because the guest was not found." };
-  if (!guest.phone) return { status: "error" as const, message: "This guest has no phone number. Send the invitation to a group member who has one." };
+
+  let viaGuest: SmsViaGuest | null = null;
+  if (guest.sms_via_guest_id) {
+    try {
+      viaGuest = (await loadSmsViaGuests([guest.sms_via_guest_id])).get(guest.sms_via_guest_id) ?? null;
+    } catch (loadError) {
+      return { status: "error" as const, message: loadError instanceof Error ? loadError.message : "The invitation texts could not be attempted. Please try again." };
+    }
+  }
+  const resolved = inviteDestination(guest, viaGuest);
+  if (!resolved.ok) return { status: "error" as const, message: resolved.message };
 
   try {
     const appUrl = await invitationBaseUrl();
-    await sendRsvpInvitation({ ...guest, phone: guest.phone }, appUrl);
+    await sendRsvpInvitation({ ...guest, phone: resolved.destination.phone }, appUrl);
     const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
     revalidatePath("/admin");
     if (updateError) return { status: "success" as const, message: "Text sent, but the sent status could not be saved." };
+    if (resolved.destination.viaName) return { status: "success" as const, message: `Text for ${guest.name} sent via ${resolved.destination.viaName}.` };
     return { status: "success" as const, message: `Text sent to ${guest.name}.` };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "The messaging provider rejected the request.";

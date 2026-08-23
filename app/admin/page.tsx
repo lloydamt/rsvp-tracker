@@ -1,4 +1,5 @@
 import { GUEST_TOKEN_ALPHABET, GUEST_TOKEN_LENGTH } from "@/lib/guest-token";
+import { guestCanSendInvite, smsViaOptions } from "@/lib/phone";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { reorderGroups, reorderUngroupedGuests } from "@/app/actions";
@@ -51,6 +52,7 @@ function createPreviewGuests(count: number): Guest[] {
       responded_at: status === "pending" ? null : new Date(Date.now() - index * 60_000).toISOString(),
       created_at: new Date(Date.now() - index * 60_000).toISOString(),
       sort_order: index,
+      sms_via_guest_id: null,
     };
   });
 }
@@ -101,6 +103,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const ungroupedGuests = visibleGuests
     .filter((guest) => !guest.group_id)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  const smsViaGuests = smsViaOptions(guests);
+  const guestsById = new Map(guests.map((guest) => [guest.id, guest]));
+  const smsViaNameById = Object.fromEntries(guests.map((guest) => [guest.id, guest.name]));
+  const canSendById = Object.fromEntries(guests.map((guest) => [
+    guest.id,
+    guestCanSendInvite(guest, guest.sms_via_guest_id ? guestsById.get(guest.sms_via_guest_id) : null),
+  ]));
   const filtersActive = Boolean(activeStatus || activeCategory);
   const filterHref = ({ status, category }: { status?: typeof activeStatus; category?: typeof activeCategory }) => {
     const params = new URLSearchParams();
@@ -149,7 +158,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <span><strong>Add guests</strong><small>Create one guest or several at once</small></span>
           <span className="addGuestCta">Add guests</span>
         </summary>
-        <AddGuestForm groups={groups} />
+        <AddGuestForm groups={groups} smsViaGuests={smsViaGuests} />
       </details>}
 
       {!isPreview && <GroupManager groups={managedGroups} />}
@@ -170,23 +179,23 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
         {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match this response filter.</div>}
         {isPreview ? visibleGroups.map((group) => (
-          <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} />
+          <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} />
         )) : (
           <SortableList persist={reorderGroups} disabled={filtersActive}>
             {visibleGroups.map((group) => (
               <SortableItem key={group.id} id={group.id}>
-                <GuestGroupCard id={group.id} name={group.name} members={group.members} isPreview={isPreview} sortable />
+                <GuestGroupCard id={group.id} name={group.name} members={group.members} isPreview={isPreview} sortable smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} />
               </SortableItem>
             ))}
           </SortableList>
         )}
         {isPreview ? ungroupedGuests.map((guest) => (
-          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} />
+          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} />
         )) : (
           <SortableList persist={reorderUngroupedGuests} disabled={filtersActive}>
             {ungroupedGuests.map((guest) => (
               <SortableItem key={guest.id} id={guest.id}>
-                <GuestCard guest={guest} isPreview={isPreview} sortable />
+                <GuestCard guest={guest} isPreview={isPreview} sortable canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} />
               </SortableItem>
             ))}
           </SortableList>

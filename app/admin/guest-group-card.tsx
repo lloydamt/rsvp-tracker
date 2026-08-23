@@ -1,4 +1,5 @@
 import { Guest } from "@/lib/supabase";
+import type { SmsViaOption } from "@/lib/phone";
 import { AddGroupMemberForm } from "./add-group-member-form";
 import { GuestCard } from "./guest-card";
 import { GroupSelectCheckbox } from "./group-select-checkbox";
@@ -21,12 +22,18 @@ export function GuestGroupCard({
   members,
   isPreview,
   sortable = false,
+  smsViaGuests = [],
+  smsViaNameById = {},
+  canSendById = {},
 }: {
   id: string;
   name: string;
   members: Guest[];
   isPreview: boolean;
   sortable?: boolean;
+  smsViaGuests?: SmsViaOption[];
+  smsViaNameById?: Record<string, string>;
+  canSendById?: Record<string, boolean>;
 }) {
   const breakdown = rsvpParts(members);
   const defaultInvitationCategory = members[0]?.invitation_category ?? "ceremony_reception";
@@ -48,7 +55,15 @@ export function GuestGroupCard({
       </summary>
       <div className="groupMembers">
         {members.map((guest) => (
-          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} hideGroupName />
+          <GuestCard
+            key={guest.id}
+            guest={guest}
+            isPreview={isPreview}
+            hideGroupName
+            canSend={canSendById[guest.id]}
+            smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined}
+            smsViaGuests={smsViaGuests}
+          />
         ))}
         {!isPreview && (
           <AddGroupMemberForm
@@ -56,6 +71,7 @@ export function GuestGroupCard({
             groupName={name}
             defaultInvitationCategory={defaultInvitationCategory}
             phoneRequired={members.every((guest) => !guest.phone)}
+            smsViaGuests={smsViaGuests}
           />
         )}
       </div>

@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { addGuests, type AddGuestsResult } from "@/app/actions";
+import type { SmsViaOption } from "@/lib/phone";
+import { SmsViaSelect } from "./sms-via-select";
 
 type InvitationCategory = "ceremony_reception" | "reception_only";
 type GuestRow = {
@@ -9,14 +11,15 @@ type GuestRow = {
   name: string;
   phone: string;
   invitationCategory: InvitationCategory;
+  smsViaGuestId: string;
   phoneError?: string;
 };
 
 function emptyRow(id: number): GuestRow {
-  return { id, name: "", phone: "", invitationCategory: "ceremony_reception" };
+  return { id, name: "", phone: "", invitationCategory: "ceremony_reception", smsViaGuestId: "" };
 }
 
-export function AddGuestForm({ groups }: { groups: { id: string; name: string }[] }) {
+export function AddGuestForm({ groups, smsViaGuests }: { groups: { id: string; name: string }[]; smsViaGuests: SmsViaOption[] }) {
   const [groupMode, setGroupMode] = useState<"none" | "existing" | "new">("none");
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [rows, setRows] = useState<GuestRow[]>([emptyRow(1)]);
@@ -72,20 +75,22 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
   return (
     <form action={formAction} className="addGuestForm">
       <div className="multiGuestHeader">
-        <div><strong>Guest details</strong><small>Add up to 50 guests in one go. Phone can be left blank for plus-ones if someone in the group has a number.</small></div>
+        <div><strong>Guest details</strong><small>Add up to 50 guests in one go. Phone can be left blank for plus-ones if someone in the group has a number. International numbers are stored but texts go to the guest you choose.</small></div>
         <span>{rows.length} guest{rows.length === 1 ? "" : "s"}</span>
       </div>
       <div className="guestRows">
         {rows.map((row, index) => (
           <div className={`guestInputRow${row.phoneError ? " hasError" : ""}`} key={row.id}>
             <span className="guestRowNumber" aria-hidden="true">{index + 1}</span>
-            <label>Name<input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} /></label>
-            <label>Phone<span className="optionalField">{groupMode === "none" && index === 0 ? "Required" : "Optional in a group"}</span><input
+            <label><span className="fieldCaption">Name</span><input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} /></label>
+            <label>
+              <span className="fieldCaption">Phone <span className="optionalField">{groupMode === "none" && index === 0 ? "Required" : "Optional in a group"}</span></span>
+              <input
               name="guest_phone"
               required={groupMode === "none" && index === 0}
               inputMode="tel"
               autoComplete="tel"
-              placeholder={index === 0 ? "07700 900123" : "Optional plus-one"}
+              placeholder={index === 0 ? "07700 900123 or +1…" : "Optional plus-one"}
               value={row.phone}
               aria-invalid={Boolean(row.phoneError)}
               aria-describedby={row.phoneError ? `guest-phone-error-${row.id}` : undefined}
@@ -93,7 +98,13 @@ export function AddGuestForm({ groups }: { groups: { id: string; name: string }[
             />
               {row.phoneError && <small className="guestPhoneError" id={`guest-phone-error-${row.id}`} role="alert">{row.phoneError}</small>}
             </label>
-            <label>Invitation<select
+            <SmsViaSelect
+              name="guest_sms_via_guest_id"
+              options={smsViaGuests}
+              value={row.smsViaGuestId}
+              onChange={(smsViaGuestId) => updateRow(row.id, { smsViaGuestId })}
+            />
+            <label><span className="fieldCaption">Invitation</span><select
               name="guest_invitation_category"
               required
               value={row.invitationCategory}

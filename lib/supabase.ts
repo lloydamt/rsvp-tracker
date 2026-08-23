@@ -9,6 +9,7 @@ export type Guest = {
   phone: string | null;
   token: string;
   group_id: string | null;
+  sms_via_guest_id: string | null;
   invitation_category: InvitationCategory;
   status: RsvpStatus;
   party_size: number;

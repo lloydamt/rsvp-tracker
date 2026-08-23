@@ -5,7 +5,7 @@ import { sendInvite } from "@/app/actions";
 
 type Feedback = Awaited<ReturnType<typeof sendInvite>> | null;
 
-export function SendInviteForm({ id, hasBeenSent, hasPhone }: { id: string; hasBeenSent: boolean; hasPhone: boolean }) {
+export function SendInviteForm({ id, hasBeenSent, canSend }: { id: string; hasBeenSent: boolean; canSend: boolean }) {
   const [feedback, formAction, isPending] = useActionState<Feedback, FormData>(
     async (_previousFeedback, formData) => sendInvite(formData),
     null,
@@ -24,8 +24,8 @@ export function SendInviteForm({ id, hasBeenSent, hasPhone }: { id: string; hasB
   return (
     <form action={formAction} className="sendInviteForm" onSubmit={() => setVisibleFeedback(null)}>
       <input type="hidden" name="id" value={id} />
-      <button className="secondary" type="submit" disabled={isPending || !hasPhone} title={hasPhone ? undefined : "This guest has no phone number"}>
-        {isPending ? "Sending…" : !hasPhone ? "No phone to text" : hasBeenSent ? "Resend text" : "Send text"}
+      <button className="secondary" type="submit" disabled={isPending || !canSend} title={canSend ? undefined : "This guest has no UK number to text"}>
+        {isPending ? "Sending…" : !canSend ? "No phone to text" : hasBeenSent ? "Resend text" : "Send text"}
       </button>
       {(isPending || visibleFeedback) && (
         <span

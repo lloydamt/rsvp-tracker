@@ -16,6 +16,7 @@ create table if not exists public.guests (
   phone text unique,
   token text not null unique check (token ~ '^[A-HJ-KM-NP-Z2-9]{6}$'),
   group_id uuid references public.guest_groups(id) on delete set null,
+  sms_via_guest_id uuid references public.guests(id) on delete restrict,
   invitation_category text not null default 'ceremony_reception' check (invitation_category in ('ceremony_reception', 'reception_only')),
   status text not null default 'pending' check (status in ('pending', 'attending', 'declined')),
   party_size integer not null default 1 check (party_size between 0 and 20),
@@ -24,7 +25,8 @@ create table if not exists public.guests (
   responded_at timestamptz,
   created_at timestamptz not null default now(),
   sort_order integer not null default 0,
-  constraint guests_ungrouped_require_phone check (group_id is not null or phone is not null)
+  constraint guests_ungrouped_require_phone check (group_id is not null or phone is not null),
+  constraint guests_sms_via_not_self check (sms_via_guest_id is distinct from id)
 );
 
 alter table public.guests enable row level security;

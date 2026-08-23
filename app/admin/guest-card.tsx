@@ -1,4 +1,5 @@
 import { Guest } from "@/lib/supabase";
+import type { SmsViaOption } from "@/lib/phone";
 import { DeleteGuestForm } from "./delete-guest-form";
 import { GuestEditForm } from "./guest-edit-form";
 import { SendInviteForm } from "./send-invite-form";
@@ -10,19 +11,31 @@ export function GuestCard({
   groupName,
   hideGroupName = false,
   sortable = false,
+  canSend = false,
+  smsViaName,
+  smsViaGuests = [],
 }: {
   guest: Guest;
   isPreview: boolean;
   groupName?: string | null;
   hideGroupName?: boolean;
   sortable?: boolean;
+  canSend?: boolean;
+  smsViaName?: string | null;
+  smsViaGuests?: SmsViaOption[];
 }) {
   return (
     <details className="guestCard">
       <summary className={`guestSummary${isPreview ? " preview" : ""}${sortable ? " sortable" : ""}`}>
         {sortable && <DragHandle id={guest.id} label={guest.name} />}
         {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
-        <span className="guestIdentity"><strong>{guest.name}</strong><span className={guest.phone ? undefined : "noPhone"}>{guest.phone ?? "No phone"}</span></span>
+        <span className="guestIdentity">
+          <strong>{guest.name}</strong>
+          <span className={guest.phone ? undefined : "noPhone"}>
+            {guest.phone ?? "No phone"}
+            {smsViaName ? ` · Texts via ${smsViaName}` : ""}
+          </span>
+        </span>
         <span className="guestResponse">
           <span className={`statusLabel ${guest.status}`}><i aria-hidden="true" />{guest.status === "pending" ? "Awaiting reply" : guest.status === "declined" ? "Declined" : "Attending"}</span>
           <span className="guestMeta">
@@ -35,10 +48,10 @@ export function GuestCard({
       <div className="guestDetails">
         {isPreview && <p className="previewDetail">Generated preview guest — management actions are disabled.</p>}
         <p className="guestCode">RSVP code <strong>{guest.token}</strong></p>
-        {!isPreview && <GuestEditForm guest={guest} />}
+        {!isPreview && <GuestEditForm guest={guest} smsViaGuests={smsViaGuests} smsViaName={smsViaName} />}
         {guest.notes && <p className="guestNote">Guest note: “{guest.notes}”</p>}
         {!isPreview && <div className="guestActions">
-          <SendInviteForm id={guest.id} hasBeenSent={Boolean(guest.message_sent_at)} hasPhone={Boolean(guest.phone)} />
+          <SendInviteForm id={guest.id} hasBeenSent={Boolean(guest.message_sent_at)} canSend={canSend} />
           <DeleteGuestForm id={guest.id} name={guest.name} />
         </div>}
       </div>

@@ -528,7 +528,7 @@ export async function sendInvite(formData: FormData) {
 
 export async function openRsvpByCode(formData: FormData) {
   const code = normalizeGuestToken(String(formData.get("code") ?? ""));
-  if (!isGuestToken(code)) return { status: "error" as const, message: "Enter the 4-character code from your invitation text." };
+  if (!isGuestToken(code)) return { status: "error" as const, message: "Enter the 6-character code from your invitation text." };
   redirect(`/rsvp/${code}`);
 }
 

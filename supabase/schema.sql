@@ -14,7 +14,7 @@ create table if not exists public.guests (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 100),
   phone text unique,
-  token text not null unique check (token ~ '^[A-HJ-KM-NP-Z2-9]{4}$'),
+  token text not null unique check (token ~ '^[A-HJ-KM-NP-Z2-9]{6}$'),
   group_id uuid references public.guest_groups(id) on delete set null,
   invitation_category text not null default 'ceremony_reception' check (invitation_category in ('ceremony_reception', 'reception_only')),
   status text not null default 'pending' check (status in ('pending', 'attending', 'declined')),

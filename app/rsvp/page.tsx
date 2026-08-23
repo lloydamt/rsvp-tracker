@@ -17,7 +17,7 @@ export default function RsvpCodePage() {
             </p>
             <span className="dateRule" aria-hidden="true" />
           </div>
-          <p>Enter the 4-character code from your invitation text to continue.</p>
+          <p>Enter the 6-character code from your invitation text to continue.</p>
         </div>
         <CodeEntryForm />
       </section>

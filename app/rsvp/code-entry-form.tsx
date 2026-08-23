@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { openRsvpByCode } from "@/app/actions";
+import { GUEST_TOKEN_INPUT_PATTERN, GUEST_TOKEN_LENGTH } from "@/lib/guest-token";
 
 type Feedback = Awaited<ReturnType<typeof openRsvpByCode>> | null;
 
@@ -18,15 +19,15 @@ export function CodeEntryForm() {
         <input
           name="code"
           required
-          maxLength={4}
-          minLength={4}
+          maxLength={GUEST_TOKEN_LENGTH}
+          minLength={GUEST_TOKEN_LENGTH}
           autoCapitalize="characters"
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
           inputMode="text"
-          pattern="[A-HJ-KM-NP-Z2-9a-hj-km-np-z]{4}"
-          placeholder="AB3K"
+          pattern={GUEST_TOKEN_INPUT_PATTERN}
+          placeholder="AB3K7P"
           aria-invalid={feedback?.status === "error"}
           aria-describedby={feedback?.status === "error" ? "code-entry-error" : undefined}
         />

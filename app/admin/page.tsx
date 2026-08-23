@@ -1,4 +1,4 @@
-import { GUEST_TOKEN_ALPHABET } from "@/lib/guest-token";
+import { GUEST_TOKEN_ALPHABET, GUEST_TOKEN_LENGTH } from "@/lib/guest-token";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
 import { reorderGroups, reorderUngroupedGuests } from "@/app/actions";
@@ -24,7 +24,7 @@ const previewGroups: GuestGroup[] = [
 function previewToken(index: number) {
   let value = index;
   let token = "";
-  for (let position = 0; position < 4; position++) {
+  for (let position = 0; position < GUEST_TOKEN_LENGTH; position++) {
     token = GUEST_TOKEN_ALPHABET[value % GUEST_TOKEN_ALPHABET.length] + token;
     value = Math.floor(value / GUEST_TOKEN_ALPHABET.length);
   }

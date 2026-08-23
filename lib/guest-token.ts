@@ -1,10 +1,11 @@
-import { randomBytes } from "crypto";
-
+export const GUEST_TOKEN_LENGTH = 6;
 export const GUEST_TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-export const GUEST_TOKEN_PATTERN = /^[A-HJ-KM-NP-Z2-9]{4}$/;
+export const GUEST_TOKEN_PATTERN = new RegExp(`^[A-HJ-KM-NP-Z2-9]{${GUEST_TOKEN_LENGTH}}$`);
+export const GUEST_TOKEN_INPUT_PATTERN = `[A-HJ-KM-NP-Z2-9a-hj-km-np-z]{${GUEST_TOKEN_LENGTH}}`;
 
 export function createGuestToken() {
-  const bytes = randomBytes(4);
+  const bytes = new Uint8Array(GUEST_TOKEN_LENGTH);
+  crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => GUEST_TOKEN_ALPHABET[byte % GUEST_TOKEN_ALPHABET.length]).join("");
 }
 

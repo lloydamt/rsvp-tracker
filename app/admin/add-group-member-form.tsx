@@ -3,8 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import { addGuests, type AddGuestsResult } from "@/app/actions";
 import type { InvitationCategory } from "@/lib/supabase";
-import type { SmsViaOption } from "@/lib/phone";
-import { SmsViaSelect } from "./sms-via-select";
+import { inputNeedsSmsVia, type SmsViaOption } from "@/lib/phone";
+import { GuestSmsViaField } from "./sms-via-select";
 
 export function AddGroupMemberForm({
   groupId,
@@ -48,8 +48,8 @@ export function AddGroupMemberForm({
   const visibleResult = result?.status === "error" || result?.status === "success" ? result : null;
 
   return (
-    <form action={formAction} className={`addGroupMemberForm${phoneError ? " hasError" : ""}`}>
-      <p className="addGroupMemberHint">Add a plus-one to {groupName}. Phone can be left blank. International numbers must send texts via a guest with a UK number.</p>
+    <form action={formAction} className={`addGroupMemberForm${phoneError ? " hasError" : ""}${inputNeedsSmsVia(phone) ? "" : " noSmsVia"}`}>
+      <p className="addGroupMemberHint">Add a plus-one to {groupName}. Phone can be left blank if someone in the group already has a number. Only non-UK numbers need a “texts via” guest.</p>
       <input type="hidden" name="group_mode" value="existing" />
       <input type="hidden" name="existing_group_id" value={groupId} />
       <label><span className="fieldCaption">Name</span><input name="guest_name" required maxLength={100} placeholder="Plus-one name" value={name} onChange={(event) => setName(event.target.value)} /></label>
@@ -64,11 +64,14 @@ export function AddGroupMemberForm({
           value={phone}
           aria-invalid={Boolean(phoneError)}
           aria-describedby={phoneError ? `group-member-phone-error-${groupId}` : undefined}
-          onChange={(event) => setPhone(event.target.value)}
+          onChange={(event) => {
+            setPhone(event.target.value);
+            setSmsViaGuestId("");
+          }}
         />
         {phoneError && <small className="guestPhoneError" id={`group-member-phone-error-${groupId}`} role="alert">{phoneError}</small>}
       </label>
-      <SmsViaSelect name="guest_sms_via_guest_id" options={smsViaGuests} value={smsViaGuestId} onChange={setSmsViaGuestId} />
+      <GuestSmsViaField name="guest_sms_via_guest_id" phone={phone} options={smsViaGuests} value={smsViaGuestId} onChange={setSmsViaGuestId} />
       <label><span className="fieldCaption">Invitation</span><select
         name="guest_invitation_category"
         required

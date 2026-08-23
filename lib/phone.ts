@@ -18,6 +18,11 @@ export function parseGuestPhone(value: FormDataEntryValue | null) {
   return { ok: false as const, error: invalidPhoneMessage };
 }
 
+export function inputNeedsSmsVia(value: string) {
+  const parsed = parseGuestPhone(value);
+  return parsed.ok && Boolean(parsed.phone) && !isUkPhone(parsed.phone);
+}
+
 export function isSmsViaRecipient(guest: { phone: string | null; sms_via_guest_id: string | null }) {
   return isUkPhone(guest.phone) && !guest.sms_via_guest_id;
 }

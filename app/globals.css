@@ -119,6 +119,8 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .multiGuestHeader > span { padding:5px 9px; border-radius:999px; background:#f2e6df; color:var(--accent); font-size:.7rem; font-weight:800; white-space:nowrap; }
 .guestRows { display:grid; gap:10px; }
 .guestInputRow { display:grid; grid-template-columns:28px minmax(130px,1.1fr) minmax(130px,1fr) minmax(150px,1fr) minmax(140px,0.9fr) 34px; align-items:start; gap:10px; padding:13px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+.guestInputRow.noSmsVia { grid-template-columns:28px minmax(130px,1.1fr) minmax(130px,1fr) minmax(140px,0.9fr) 34px; }
+.smsViaPlaceholder { min-width:0; }
 .guestInputRow.hasError { border-color:#d9aaa1; background:#fdf6f4; }
 .guestInputRow label,.addGroupMemberForm label,.guestEditForm label { display:grid; align-content:start; min-width:0; }
 .fieldCaption { display:block; height:1.2em; overflow:hidden; line-height:1.2em; white-space:nowrap; text-overflow:ellipsis; }
@@ -264,6 +266,7 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
 .guestSummary.sortable,.groupSummary.sortable { grid-template-columns:auto auto minmax(180px,1fr) minmax(330px,1.35fr) auto; }
 .addGuestHint { margin:0; color:#5d4b7d; font-size:.76rem; }
 .addGroupMemberForm { display:grid; grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) minmax(150px,1fr) minmax(140px,0.9fr) auto; align-items:end; gap:10px; padding:12px; border:1px dashed #c9b9df; border-radius:12px; background:rgba(255,255,255,.72); }
+.addGroupMemberForm.noSmsVia { grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) minmax(140px,0.9fr) auto; }
 .addGroupMemberForm.hasError { border-color:#d9aaa1; background:#fdf6f4; }
 .addGroupMemberForm .addGroupMemberHint { grid-column:1 / -1; margin:0; color:#5d4b7d; font-size:.72rem; }
 .addGroupMemberForm label { min-width:0; }
@@ -287,6 +290,7 @@ input:focus,select:focus,textarea:focus { border-color:#b46a59; box-shadow:0 0 0
   .guestFields { grid-template-columns:1fr; }
   .guestInputRow { grid-template-columns:28px minmax(0,1fr) 34px; align-items:start; }
   .guestInputRow label { grid-column:2; }
+  .guestInputRow .smsViaPlaceholder { display:none; }
   .guestInputRow .guestRowNumber { grid-column:1; grid-row:1; margin-top:24px; }
   .guestInputRow .removeGuestRow { grid-column:3; grid-row:1; margin-top:22px; }
   .guestEditForm { grid-template-columns:1fr 1fr; }

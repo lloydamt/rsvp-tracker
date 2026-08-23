@@ -43,6 +43,24 @@ function cleanSmsViaGuestId(value: FormDataEntryValue | null) {
   return id || null;
 }
 
+function formValues(formData: FormData, name: string, count: number) {
+  const values = formData.getAll(name);
+  return Array.from({ length: count }, (_, index) => values[index] ?? "");
+}
+
+function resolveAddGuestsGroup(formData: FormData) {
+  const declared = String(formData.get("group_mode") ?? "none");
+  const existingId = String(formData.get("existing_group_id") ?? "").trim();
+  const newName = String(formData.get("new_group_name") ?? "").trim();
+  if (declared === "new" || (declared !== "existing" && newName)) {
+    return { mode: "new" as const, existingId: "", newName };
+  }
+  if (declared === "existing" || existingId) {
+    return { mode: "existing" as const, existingId, newName: "" };
+  }
+  return { mode: "none" as const, existingId: "", newName: "" };
+}
+
 function isSmsViaForeignKeyViolation(error: { code?: string; message?: string; details?: string }) {
   if (error.code !== "23503") return false;
   return /sms_via/i.test(`${error.message ?? ""} ${error.details ?? ""}`);
@@ -117,6 +135,30 @@ function groupErrorMessage(error: { code?: string; message: string }) {
   return error.code === "23505" ? "A group with that name already exists." : error.message;
 }
 
+async function insertGuestGroup(name: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from("guest_groups")
+    .insert({ name, sort_order: await nextSortOrder("guest_groups") })
+    .select("id")
+    .single();
+  if (error) throw Object.assign(new Error(groupErrorMessage(error)), { code: error.code });
+  return data.id;
+}
+
+async function insertUniqueGuestGroup(baseName: string) {
+  const root = baseName.trim().slice(0, 100) || "Group";
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    const suffix = attempt === 1 ? "" : ` (${attempt})`;
+    const name = `${root.slice(0, Math.max(1, 100 - suffix.length))}${suffix}`;
+    try {
+      return await insertGuestGroup(name);
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "23505") throw error;
+    }
+  }
+  throw new Error("Could not create a group for these guests. Please choose a group name.");
+}
+
 async function deleteGroupsWithoutMembers(groupIds: Array<string | null>) {
   const affectedGroupIds = [...new Set(groupIds.filter((id): id is string => Boolean(id)))];
   if (affectedGroupIds.length === 0) return;
@@ -145,18 +187,12 @@ async function nextSortOrder(table: "guests" | "guest_groups") {
 export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
   try {
     const names = formData.getAll("guest_name");
-    const phones = formData.getAll("guest_phone");
-    const categories = formData.getAll("guest_invitation_category");
-    const smsViaIds = formData.getAll("guest_sms_via_guest_id");
-    if (
-      names.length === 0
-      || names.length > 50
-      || phones.length !== names.length
-      || categories.length !== names.length
-      || smsViaIds.length !== names.length
-    ) {
+    if (names.length === 0 || names.length > 50) {
       return { status: "error", message: "Add between 1 and 50 guests at a time." };
     }
+    const phones = formValues(formData, "guest_phone", names.length);
+    const categories = formValues(formData, "guest_invitation_category", names.length);
+    const smsViaIds = formValues(formData, "guest_sms_via_guest_id", names.length);
 
     const phoneErrors = Array.from({ length: names.length }, () => "");
     const guests: { name: string; phone: string | null; invitation_category: InvitationCategory; sms_via_guest_id: string | null }[] = [];
@@ -243,41 +279,48 @@ export async function addGuests(formData: FormData): Promise<AddGuestsResult> {
     }
     if (messages.length > 0) return { status: "error", message: messages[0] };
 
-    const groupMode = String(formData.get("group_mode") ?? "none");
+    const group = resolveAddGuestsGroup(formData);
     let groupId: string | null = null;
     let createdGroupId: string | null = null;
     const batchHasPhone = guests.some((guest) => guest.phone);
+    const batchHasPlusOne = guests.some((guest) => !guest.phone);
 
-    if (groupMode === "none") {
-      for (let index = 0; index < guests.length; index++) {
-        if (guests[index].phone) continue;
-        phoneErrors[index] = "Add a phone number, or put this guest in a group with someone who has one.";
+    if (group.mode === "none") {
+      if (batchHasPlusOne && guests.length >= 2 && batchHasPhone) {
+        try {
+          groupId = await insertUniqueGuestGroup(guests[0].name);
+          createdGroupId = groupId;
+        } catch (error) {
+          return { status: "error", message: error instanceof Error ? error.message : "Those guests could not be saved. Please try again." };
+        }
+      } else {
+        for (let index = 0; index < guests.length; index++) {
+          if (guests[index].phone) continue;
+          phoneErrors[index] = "Add a phone number, or put this guest in a group with someone who has one.";
+        }
+        if (phoneErrors.some(Boolean)) {
+          return {
+            status: "error",
+            message: "Fix the highlighted phone numbers and try again.",
+            phoneErrors,
+          };
+        }
       }
-      if (phoneErrors.some(Boolean)) {
-        return {
-          status: "error",
-          message: "Fix the highlighted phone numbers and try again.",
-          phoneErrors,
-        };
-      }
-    } else if (groupMode === "existing") {
-      const requestedGroupId = String(formData.get("existing_group_id") ?? "");
+    } else if (group.mode === "existing") {
+      const requestedGroupId = group.existingId;
       if (!requestedGroupId) return { status: "error", message: "Choose an existing group." };
-      const { data: group, error } = await supabase.from("guest_groups").select("id").eq("id", requestedGroupId).maybeSingle();
+      const { data: selectedGroup, error } = await supabase.from("guest_groups").select("id").eq("id", requestedGroupId).maybeSingle();
       if (error) return { status: "error", message: error.message };
-      if (!group) return { status: "error", message: "The selected group no longer exists." };
-      if (!batchHasPhone && !(await groupHasPhone(group.id))) {
+      if (!selectedGroup) return { status: "error", message: "The selected group no longer exists." };
+      if (!batchHasPhone && !(await groupHasPhone(selectedGroup.id))) {
         return { status: "error", message: "This group needs at least one guest with a phone number." };
       }
-      groupId = group.id;
-    } else if (groupMode === "new") {
+      groupId = selectedGroup.id;
+    } else if (group.mode === "new") {
       if (!batchHasPhone) return { status: "error", message: "Add a phone number for at least one guest in this group." };
       try {
-        const groupName = cleanGroupName(formData.get("new_group_name"));
-        const { data: group, error } = await supabase.from("guest_groups").insert({ name: groupName, sort_order: await nextSortOrder("guest_groups") }).select("id").single();
-        if (error) return { status: "error", message: groupErrorMessage(error) };
-        groupId = group.id;
-        createdGroupId = group.id;
+        groupId = await insertGuestGroup(cleanGroupName(group.newName || formData.get("new_group_name")));
+        createdGroupId = groupId;
       } catch (error) {
         return { status: "error", message: error instanceof Error ? error.message : "Enter a group name under 100 characters." };
       }

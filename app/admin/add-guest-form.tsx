@@ -2,8 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { addGuests, type AddGuestsResult } from "@/app/actions";
-import type { SmsViaOption } from "@/lib/phone";
-import { SmsViaSelect } from "./sms-via-select";
+import { inputNeedsSmsVia, type SmsViaOption } from "@/lib/phone";
+import { GuestSmsViaField } from "./sms-via-select";
 
 type InvitationCategory = "ceremony_reception" | "reception_only";
 type GuestRow = {
@@ -72,37 +72,42 @@ export function AddGuestForm({ groups, smsViaGuests }: { groups: { id: string; n
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
+  const showSmsViaColumn = rows.some((row) => inputNeedsSmsVia(row.phone));
+  const someoneHasPhone = rows.some((row) => row.phone.trim());
+
   return (
     <form action={formAction} className="addGuestForm">
       <div className="multiGuestHeader">
-        <div><strong>Guest details</strong><small>Add up to 50 guests in one go. Phone can be left blank for plus-ones if someone in the group has a number. International numbers are stored but texts go to the guest you choose.</small></div>
+        <div><strong>Guest details</strong><small>Add up to 50 guests in one go. Plus-ones can skip a phone number if someone in the same group has one. Only non-UK numbers need a “texts via” guest.</small></div>
         <span>{rows.length} guest{rows.length === 1 ? "" : "s"}</span>
       </div>
       <div className="guestRows">
         {rows.map((row, index) => (
-          <div className={`guestInputRow${row.phoneError ? " hasError" : ""}`} key={row.id}>
+          <div className={`guestInputRow${row.phoneError ? " hasError" : ""}${showSmsViaColumn ? "" : " noSmsVia"}`} key={row.id}>
             <span className="guestRowNumber" aria-hidden="true">{index + 1}</span>
             <label><span className="fieldCaption">Name</span><input name="guest_name" required maxLength={100} placeholder={index === 0 ? "Ada Lovelace" : "Guest name"} value={row.name} onChange={(event) => updateRow(row.id, { name: event.target.value })} /></label>
             <label>
-              <span className="fieldCaption">Phone <span className="optionalField">{groupMode === "none" && index === 0 ? "Required" : "Optional in a group"}</span></span>
+              <span className="fieldCaption">Phone <span className="optionalField">{groupMode === "none" && rows.length === 1 && index === 0 ? "Required" : "Optional in a group"}</span></span>
               <input
               name="guest_phone"
-              required={groupMode === "none" && index === 0}
+              required={groupMode === "none" && !someoneHasPhone && index === 0}
               inputMode="tel"
               autoComplete="tel"
               placeholder={index === 0 ? "07700 900123 or +1…" : "Optional plus-one"}
               value={row.phone}
               aria-invalid={Boolean(row.phoneError)}
               aria-describedby={row.phoneError ? `guest-phone-error-${row.id}` : undefined}
-              onChange={(event) => updateRow(row.id, { phone: event.target.value, phoneError: undefined })}
+              onChange={(event) => updateRow(row.id, { phone: event.target.value, phoneError: undefined, smsViaGuestId: "" })}
             />
               {row.phoneError && <small className="guestPhoneError" id={`guest-phone-error-${row.id}`} role="alert">{row.phoneError}</small>}
             </label>
-            <SmsViaSelect
+            <GuestSmsViaField
               name="guest_sms_via_guest_id"
+              phone={row.phone}
               options={smsViaGuests}
               value={row.smsViaGuestId}
               onChange={(smsViaGuestId) => updateRow(row.id, { smsViaGuestId })}
+              keepColumn={showSmsViaColumn}
             />
             <label><span className="fieldCaption">Invitation</span><select
               name="guest_invitation_category"
@@ -124,7 +129,7 @@ export function AddGuestForm({ groups, smsViaGuests }: { groups: { id: string; n
         ))}
       </div>
       <button className="addAnotherGuest" type="button" onClick={addRow} disabled={isPending || rows.length >= 50}><span aria-hidden="true">+</span> Add plus-one or another guest</button>
-      {rows.length > 1 && groupMode === "none" && <p className="addGuestHint">Choose or create a group below to save plus-ones without a phone number.</p>}
+      {rows.length > 1 && groupMode === "none" && <p className="addGuestHint">These guests will be saved as a group. Only one phone number is needed — plus-ones do not need a number or a “texts via” guest.</p>}
       <fieldset className="guestGroupField">
         <legend>Group <span>Optional · applies to everyone above</span></legend>
         <input type="hidden" name="group_mode" value={groupMode} />

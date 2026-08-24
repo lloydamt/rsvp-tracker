@@ -48,8 +48,8 @@ export async function sendRsvpInvitation(guest: { name: string; phone: string; t
   return getMessagingService().send({
     to: guest.phone,
     body: guest.invitation_category === "ceremony_reception"
-      ? `Hi ${guest.name}! Ceremony & reception. RSVP ${inviteUrl.toString()} (code ${guest.token}). ${infoUrl}`
-      : `Hi ${guest.name}! Reception. RSVP ${inviteUrl.toString()} (code ${guest.token}). ${infoUrl}`,
+      ? `Tadiwa & Adawari invite you to their ceremony/reception. RSVP at ${inviteUrl.toString()}.\n\nFor info: ${infoUrl}.`
+      : `Tadiwa & Adawari invite you to their reception. RSVP at ${inviteUrl.toString()}.\n\nFor info: ${infoUrl}.`,
   });
 }
 

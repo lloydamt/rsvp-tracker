@@ -57,12 +57,15 @@ function createPreviewGuests(count: number): Guest[] {
   });
 }
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ status?: string; category?: string; preview?: string }> }) {
+const sentFilters = ["sent", "unsent"] as const;
+
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ status?: string; category?: string; sent?: string; preview?: string }> }) {
   const query = await searchParams;
   const isPreview = query.preview === "300";
   const requestedStatus = query.status;
   const activeStatus = filters.find((status) => status === requestedStatus);
   const activeCategory = query.category === "ceremony_reception" || query.category === "reception_only" ? query.category : undefined;
+  const activeSent = sentFilters.find((sent) => sent === query.sent);
   let guests: Guest[];
   let groups: GuestGroup[];
   if (isPreview) {
@@ -92,7 +95,15 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     ceremony_reception: guests.filter((guest) => guest.invitation_category === "ceremony_reception").length,
     reception_only: guests.filter((guest) => guest.invitation_category === "reception_only").length,
   };
-  const visibleGuests = guests.filter((guest) => (!activeStatus || guest.status === activeStatus) && (!activeCategory || guest.invitation_category === activeCategory));
+  const sentCounts = {
+    sent: guests.filter((guest) => guest.message_sent_at).length,
+    unsent: guests.filter((guest) => !guest.message_sent_at).length,
+  };
+  const visibleGuests = guests.filter((guest) => (
+    (!activeStatus || guest.status === activeStatus)
+    && (!activeCategory || guest.invitation_category === activeCategory)
+    && (!activeSent || (activeSent === "sent" ? Boolean(guest.message_sent_at) : !guest.message_sent_at))
+  ));
   const visibleGroups = groups
     .map((group) => ({
       ...group,
@@ -110,11 +121,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     guest.id,
     guestCanSendInvite(guest, guest.sms_via_guest_id ? guestsById.get(guest.sms_via_guest_id) : null),
   ]));
-  const filtersActive = Boolean(activeStatus || activeCategory);
-  const filterHref = ({ status, category }: { status?: typeof activeStatus; category?: typeof activeCategory }) => {
+  const filtersActive = Boolean(activeStatus || activeCategory || activeSent);
+  const filterHref = ({ status, category, sent }: { status?: typeof activeStatus; category?: typeof activeCategory; sent?: typeof activeSent }) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (category) params.set("category", category);
+    if (sent) params.set("sent", sent);
     if (isPreview) params.set("preview", "300");
     return params.size > 0 ? `/admin?${params.toString()}` : "/admin";
   };
@@ -130,24 +142,34 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section className="guestFilters" aria-label="Filter guests">
         <div className="responseOverview" aria-label="Filter guests by RSVP response">
-          <Link className={`responseStat attending ${activeStatus === "attending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "attending" ? undefined : "attending", category: activeCategory })} aria-current={activeStatus === "attending" ? "page" : undefined}>
+          <Link className={`responseStat attending ${activeStatus === "attending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "attending" ? undefined : "attending", category: activeCategory, sent: activeSent })} aria-current={activeStatus === "attending" ? "page" : undefined}>
             <strong>{counts.attending}</strong><span>Attending</span>
           </Link>
-          <Link className={`responseStat pending ${activeStatus === "pending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "pending" ? undefined : "pending", category: activeCategory })} aria-current={activeStatus === "pending" ? "page" : undefined}>
+          <Link className={`responseStat pending ${activeStatus === "pending" ? "active" : ""}`} href={filterHref({ status: activeStatus === "pending" ? undefined : "pending", category: activeCategory, sent: activeSent })} aria-current={activeStatus === "pending" ? "page" : undefined}>
             <strong>{counts.pending}</strong><span>Awaiting reply</span>
           </Link>
-          <Link className={`responseStat declined ${activeStatus === "declined" ? "active" : ""}`} href={filterHref({ status: activeStatus === "declined" ? undefined : "declined", category: activeCategory })} aria-current={activeStatus === "declined" ? "page" : undefined}>
+          <Link className={`responseStat declined ${activeStatus === "declined" ? "active" : ""}`} href={filterHref({ status: activeStatus === "declined" ? undefined : "declined", category: activeCategory, sent: activeSent })} aria-current={activeStatus === "declined" ? "page" : undefined}>
             <strong>{counts.declined}</strong><span>Declined</span>
           </Link>
         </div>
 
         <div className="categoryOverview" aria-label="Filter guests by invitation category">
           <span className="filterLabel">Invitation</span>
-          <Link className={`categoryStat fullDay ${activeCategory === "ceremony_reception" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "ceremony_reception" ? undefined : "ceremony_reception" })}>
+          <Link className={`categoryStat fullDay ${activeCategory === "ceremony_reception" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "ceremony_reception" ? undefined : "ceremony_reception", sent: activeSent })}>
             Ceremony &amp; reception <strong>{categoryCounts.ceremony_reception}</strong>
           </Link>
-          <Link className={`categoryStat receptionOnly ${activeCategory === "reception_only" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "reception_only" ? undefined : "reception_only" })}>
+          <Link className={`categoryStat receptionOnly ${activeCategory === "reception_only" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory === "reception_only" ? undefined : "reception_only", sent: activeSent })}>
             Reception only <strong>{categoryCounts.reception_only}</strong>
+          </Link>
+        </div>
+
+        <div className="categoryOverview" aria-label="Filter guests by invitation text">
+          <span className="filterLabel">Text</span>
+          <Link className={`categoryStat ${activeSent === "unsent" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory, sent: activeSent === "unsent" ? undefined : "unsent" })} aria-current={activeSent === "unsent" ? "page" : undefined}>
+            Not sent <strong>{sentCounts.unsent}</strong>
+          </Link>
+          <Link className={`categoryStat ${activeSent === "sent" ? "active" : ""}`} href={filterHref({ status: activeStatus, category: activeCategory, sent: activeSent === "sent" ? undefined : "sent" })} aria-current={activeSent === "sent" ? "page" : undefined}>
+            Sent <strong>{sentCounts.sent}</strong>
           </Link>
         </div>
       </section>
@@ -177,7 +199,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section className="guestList">
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
-        {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match this response filter.</div>}
+        {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match these filters.</div>}
         {isPreview ? visibleGroups.map((group) => (
           <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} />
         )) : (

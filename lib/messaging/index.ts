@@ -44,13 +44,12 @@ export async function sendRsvpInvitation(guest: { name: string; phone: string; t
   }
 
   const infoUrl = categoryInfoUrl(guest.invitation_category);
-  const moreInfo = `For more info concerning the day, please visit ${infoUrl}`;
 
   return getMessagingService().send({
     to: guest.phone,
     body: guest.invitation_category === "ceremony_reception"
-      ? `Hi ${guest.name}! You are invited to our ceremony and reception. Please RSVP here: ${inviteUrl.toString()} Your RSVP code is ${guest.token}. ${moreInfo}`
-      : `Hi ${guest.name}! You are invited to our reception. Please RSVP here: ${inviteUrl.toString()} Your RSVP code is ${guest.token}. ${moreInfo}`,
+      ? `Hi ${guest.name}! Ceremony & reception. RSVP ${inviteUrl.toString()} (code ${guest.token}). ${infoUrl}`
+      : `Hi ${guest.name}! Reception. RSVP ${inviteUrl.toString()} (code ${guest.token}). ${infoUrl}`,
   });
 }
 

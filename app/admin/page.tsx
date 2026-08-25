@@ -8,6 +8,7 @@ import { AddGuestForm } from "./add-guest-form";
 import { GuestCard } from "./guest-card";
 import { GuestGroupCard } from "./guest-group-card";
 import { GroupManager } from "./group-manager";
+import { AdminNav } from "./admin-nav";
 import { SortableItem, SortableList } from "./sortable-list";
 
 export const dynamic = "force-dynamic";
@@ -137,6 +138,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div><p className="eyebrow">Organizer view</p><h1>Guest list</h1></div>
         <div className="summary"><strong>{guests.length}</strong> total guests</div>
       </header>
+      <AdminNav active="list" />
 
       {isPreview && <div className="previewBanner"><span><strong>Preview mode:</strong> 300 generated guests. Nothing here is stored in the database.</span><Link href="/admin">Exit preview</Link></div>}
 

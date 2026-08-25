@@ -11,6 +11,7 @@ export function GuestCard({
   groupName,
   hideGroupName = false,
   sortable = false,
+  selectable = true,
   canSend = false,
   smsViaName,
   smsViaGuests = [],
@@ -20,15 +21,16 @@ export function GuestCard({
   groupName?: string | null;
   hideGroupName?: boolean;
   sortable?: boolean;
+  selectable?: boolean;
   canSend?: boolean;
   smsViaName?: string | null;
   smsViaGuests?: SmsViaOption[];
 }) {
   return (
     <details className="guestCard">
-      <summary className={`guestSummary${isPreview ? " preview" : ""}${sortable ? " sortable" : ""}`}>
+      <summary className={`guestSummary${isPreview || !selectable ? " preview" : ""}${sortable ? " sortable" : ""}`}>
         {sortable && <DragHandle id={guest.id} label={guest.name} />}
-        {!isPreview && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
+        {!isPreview && selectable && <input className="guestCheckbox" type="checkbox" name="guest_ids" value={guest.id} form="bulk-guest-form" data-grouped={guest.group_id ? "true" : "false"} aria-label={`Select ${guest.name}`} />}
         <span className="guestIdentity">
           <strong>{guest.name}</strong>
           <span className={guest.phone ? undefined : "noPhone"}>

@@ -18,6 +18,21 @@ export function parseGuestPhone(value: FormDataEntryValue | null) {
   return { ok: false as const, error: invalidPhoneMessage };
 }
 
+export function phoneSearchDigits(value: string) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (/^0\d{10}$/.test(digits)) return `44${digits.slice(1)}`;
+  return digits;
+}
+
+export function guestPhoneMatchesQuery(phone: string | null, query: string) {
+  const parsed = parseGuestPhone(query);
+  if (parsed.ok && parsed.phone && phone === parsed.phone) return true;
+
+  const queryDigits = phoneSearchDigits(query);
+  if (queryDigits.length < 4 || !phone) return false;
+  return phone.replace(/\D/g, "").endsWith(queryDigits);
+}
+
 export function inputNeedsSmsVia(value: string) {
   const parsed = parseGuestPhone(value);
   return parsed.ok && Boolean(parsed.phone) && !isUkPhone(parsed.phone);

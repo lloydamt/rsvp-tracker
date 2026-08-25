@@ -1,4 +1,5 @@
 import { guestMatchesSearch, isGuestSearchQueryUseful, normalizeSearchQuery } from "@/lib/guest-search";
+import { invitationBaseUrl } from "@/lib/invitation-url";
 import { guestCanSendInvite, smsViaOptions } from "@/lib/phone";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import { AdminNav } from "../admin-nav";
@@ -14,9 +15,10 @@ export default async function FindPage({ searchParams }: { searchParams: Promise
   const useful = isGuestSearchQueryUseful(normalized);
 
   const supabase = getSupabaseAdmin();
-  const [{ data, error }, { data: storedGroups, error: groupsError }] = await Promise.all([
+  const [{ data, error }, { data: storedGroups, error: groupsError }, appUrl] = await Promise.all([
     supabase.from("guests").select("*").order("name", { ascending: true }),
     supabase.from("guest_groups").select("id,name"),
+    invitationBaseUrl(),
   ]);
   if (error) throw new Error(error.message);
   if (groupsError) throw new Error(groupsError.message);
@@ -78,6 +80,7 @@ export default async function FindPage({ searchParams }: { searchParams: Promise
             canSend={guestCanSendInvite(guest, guest.sms_via_guest_id ? guestsById.get(guest.sms_via_guest_id) : null)}
             smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined}
             smsViaGuests={smsViaGuests}
+            appUrl={appUrl}
           />
         ))}
       </section>

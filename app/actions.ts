@@ -1,36 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createUniqueGuestTokens, isGuestToken, isTokenUniqueViolation, normalizeGuestToken } from "@/lib/guest-token";
+import { invitationBaseUrl } from "@/lib/invitation-url";
 import { getSupabaseAdmin, InvitationCategory, RsvpStatus } from "@/lib/supabase";
 import { sendRsvpInvitation } from "@/lib/messaging";
+import { INVITATION_MESSAGE_MAX_LENGTH } from "@/lib/messaging/invitation-message";
 import { inviteDestination, isSmsViaRecipient, isUkPhone, parseGuestPhone } from "@/lib/phone";
-
-async function invitationBaseUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configuredUrl) {
-    try {
-      const url = new URL(configuredUrl);
-      const isLocalUrl = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-      if (process.env.NODE_ENV !== "production" || !isLocalUrl) return url.origin;
-    } catch {
-      // In production, fall through to the public request origin so an invalid
-      // local setting cannot leak into invitation texts.
-    }
-  }
-
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host")?.split(",")[0].trim() || requestHeaders.get("host");
-  if (host) {
-    const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0].trim();
-    const protocol = forwardedProtocol || (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-    return new URL(`${protocol}://${host}`).origin;
-  }
-
-  throw new Error("Set NEXT_PUBLIC_APP_URL to the public HTTPS URL for this site.");
-}
 
 export type AddGuestsResult = {
   status: "success" | "error";
@@ -646,8 +623,22 @@ export async function bulkGuestOperation(formData: FormData) {
   };
 }
 
+function invitationBodyFromForm(formData: FormData) {
+  const rawBody = formData.get("body");
+  if (rawBody === null) return { ok: true as const, body: undefined };
+  const body = String(rawBody).trim();
+  if (!body) return { ok: false as const, message: "Enter the invitation text before sending." };
+  if (body.length > INVITATION_MESSAGE_MAX_LENGTH) {
+    return { ok: false as const, message: `Invitation text must be ${INVITATION_MESSAGE_MAX_LENGTH} characters or fewer.` };
+  }
+  return { ok: true as const, body };
+}
+
 export async function sendInvite(formData: FormData) {
   const id = String(formData.get("id") ?? "");
+  const parsedBody = invitationBodyFromForm(formData);
+  if (!parsedBody.ok) return { status: "error" as const, message: parsedBody.message };
+
   const supabase = getSupabaseAdmin();
   const { data: guest, error } = await supabase.from("guests").select("id,name,phone,token,invitation_category,sms_via_guest_id").eq("id", id).single();
   if (error || !guest) return { status: "error" as const, message: "The text could not be attempted because the guest was not found." };
@@ -665,7 +656,7 @@ export async function sendInvite(formData: FormData) {
 
   try {
     const appUrl = await invitationBaseUrl();
-    await sendRsvpInvitation({ ...guest, phone: resolved.destination.phone }, appUrl);
+    await sendRsvpInvitation({ ...guest, phone: resolved.destination.phone }, appUrl, parsedBody.body);
     const { error: updateError } = await supabase.from("guests").update({ message_sent_at: new Date().toISOString() }).eq("id", guest.id);
     revalidatePath("/admin");
     if (updateError) return { status: "success" as const, message: "Text sent, but the sent status could not be saved." };

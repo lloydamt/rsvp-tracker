@@ -1,4 +1,5 @@
 import { GUEST_TOKEN_ALPHABET, GUEST_TOKEN_LENGTH } from "@/lib/guest-token";
+import { invitationBaseUrl } from "@/lib/invitation-url";
 import { guestCanSendInvite, smsViaOptions } from "@/lib/phone";
 import { getSupabaseAdmin, Guest } from "@/lib/supabase";
 import Link from "next/link";
@@ -67,6 +68,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const activeStatus = filters.find((status) => status === requestedStatus);
   const activeCategory = query.category === "ceremony_reception" || query.category === "reception_only" ? query.category : undefined;
   const activeSent = sentFilters.find((sent) => sent === query.sent);
+  const appUrlPromise = invitationBaseUrl();
   let guests: Guest[];
   let groups: GuestGroup[];
   if (isPreview) {
@@ -123,6 +125,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     guestCanSendInvite(guest, guest.sms_via_guest_id ? guestsById.get(guest.sms_via_guest_id) : null),
   ]));
   const filtersActive = Boolean(activeStatus || activeCategory || activeSent);
+  const appUrl = await appUrlPromise;
   const filterHref = ({ status, category, sent }: { status?: typeof activeStatus; category?: typeof activeCategory; sent?: typeof activeSent }) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
@@ -203,23 +206,23 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {guests.length === 0 && <div className="card empty">No guests yet. Add your first guest above.</div>}
         {guests.length > 0 && visibleGuests.length === 0 && <div className="card empty">No guests match these filters.</div>}
         {isPreview ? visibleGroups.map((group) => (
-          <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} />
+          <GuestGroupCard key={group.id} id={group.id} name={group.name} members={group.members} isPreview={isPreview} smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} appUrl={appUrl} />
         )) : (
           <SortableList persist={reorderGroups} disabled={filtersActive}>
             {visibleGroups.map((group) => (
               <SortableItem key={group.id} id={group.id}>
-                <GuestGroupCard id={group.id} name={group.name} members={group.members} isPreview={isPreview} sortable smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} />
+                <GuestGroupCard id={group.id} name={group.name} members={group.members} isPreview={isPreview} sortable smsViaGuests={smsViaGuests} smsViaNameById={smsViaNameById} canSendById={canSendById} appUrl={appUrl} />
               </SortableItem>
             ))}
           </SortableList>
         )}
         {isPreview ? ungroupedGuests.map((guest) => (
-          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} />
+          <GuestCard key={guest.id} guest={guest} isPreview={isPreview} canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} appUrl={appUrl} />
         )) : (
           <SortableList persist={reorderUngroupedGuests} disabled={filtersActive}>
             {ungroupedGuests.map((guest) => (
               <SortableItem key={guest.id} id={guest.id}>
-                <GuestCard guest={guest} isPreview={isPreview} sortable canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} />
+                <GuestCard guest={guest} isPreview={isPreview} sortable canSend={canSendById[guest.id]} smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined} smsViaGuests={smsViaGuests} appUrl={appUrl} />
               </SortableItem>
             ))}
           </SortableList>

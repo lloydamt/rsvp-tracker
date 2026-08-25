@@ -25,6 +25,7 @@ export function GuestGroupCard({
   smsViaGuests = [],
   smsViaNameById = {},
   canSendById = {},
+  appUrl,
 }: {
   id: string;
   name: string;
@@ -34,6 +35,7 @@ export function GuestGroupCard({
   smsViaGuests?: SmsViaOption[];
   smsViaNameById?: Record<string, string>;
   canSendById?: Record<string, boolean>;
+  appUrl: string;
 }) {
   const breakdown = rsvpParts(members);
   const defaultInvitationCategory = members[0]?.invitation_category ?? "ceremony_reception";
@@ -63,6 +65,7 @@ export function GuestGroupCard({
             canSend={canSendById[guest.id]}
             smsViaName={guest.sms_via_guest_id ? smsViaNameById[guest.sms_via_guest_id] : undefined}
             smsViaGuests={smsViaGuests}
+            appUrl={appUrl}
           />
         ))}
         {!isPreview && (

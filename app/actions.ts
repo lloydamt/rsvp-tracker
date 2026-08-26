@@ -691,12 +691,16 @@ export async function submitRsvp(token: string, formData: FormData) {
   redirect(`/rsvp/${token}?saved=1`);
 }
 
+function isRsvpStatus(value: string): value is RsvpStatus {
+  return value === "attending" || value === "declined";
+}
+
 export async function submitGroupRsvp(token: string, formData: FormData) {
-  const status = String(formData.get("status") ?? "") as RsvpStatus;
+  const status = String(formData.get("status") ?? "");
   const scope = String(formData.get("scope") ?? "self");
   const selectedIds = [...new Set(formData.getAll("selected_ids").map(String).filter(Boolean))];
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 500);
-  if (!token || !["attending", "declined"].includes(status)) throw new Error("Choose an RSVP response.");
+  if (!token) throw new Error("This group invitation is invalid.");
   if (!["self", "selected", "group"].includes(scope)) throw new Error("Choose who this response applies to.");
 
   const supabase = getSupabaseAdmin();
@@ -705,19 +709,36 @@ export async function submitGroupRsvp(token: string, formData: FormData) {
   const { data: members, error: memberError } = await supabase.from("guests").select("id").eq("group_id", owner.group_id);
   if (memberError) throw new Error(memberError.message);
   const memberIds = new Set((members ?? []).map((member) => member.id));
+  const respondedAt = new Date().toISOString();
 
-  let targetIds: string[];
-  if (scope === "self") targetIds = [owner.id];
-  else if (scope === "group") targetIds = [...memberIds];
-  else targetIds = [...new Set([owner.id, ...selectedIds.filter((id) => memberIds.has(id))])];
-  if (targetIds.length === 0) throw new Error("Select at least one person from the group.");
+  async function applyStatus(ids: string[], nextStatus: RsvpStatus) {
+    if (ids.length === 0) return;
+    const { error } = await supabase.from("guests").update({
+      status: nextStatus,
+      party_size: nextStatus === "attending" ? 1 : 0,
+      responded_at: respondedAt,
+    }).in("id", ids);
+    if (error) throw new Error(error.message);
+  }
 
-  const { error } = await supabase.from("guests").update({
-    status,
-    party_size: status === "attending" ? 1 : 0,
-    responded_at: new Date().toISOString(),
-  }).in("id", targetIds);
-  if (error) throw new Error(error.message);
+  if (scope === "selected") {
+    const targetIds = [...new Set([owner.id, ...selectedIds.filter((id) => memberIds.has(id))])];
+    if (targetIds.length === 0) throw new Error("Select at least one person from the group.");
+    const attendingIds: string[] = [];
+    const declinedIds: string[] = [];
+    for (const id of targetIds) {
+      const memberStatus = String(formData.get(`member_status_${id}`) ?? "");
+      if (memberStatus === "attending") attendingIds.push(id);
+      else if (memberStatus === "declined") declinedIds.push(id);
+      else throw new Error("Choose a response for each selected person.");
+    }
+    await Promise.all([applyStatus(attendingIds, "attending"), applyStatus(declinedIds, "declined")]);
+  } else {
+    if (!isRsvpStatus(status)) throw new Error("Choose an RSVP response.");
+    const targetIds = scope === "self" ? [owner.id] : [...memberIds];
+    await applyStatus(targetIds, status);
+  }
+
   if (notes) await supabase.from("guests").update({ notes }).eq("id", owner.id);
   redirect(`/rsvp/${token}?saved=1`);
 }

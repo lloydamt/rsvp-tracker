@@ -47,10 +47,10 @@ export default async function NotesPage() {
       <section className="noteList" aria-label="Guest notes">
         {notedGuests.length === 0 && <div className="card empty">No guest notes yet.</div>}
         {notedGuests.map((guest) => {
-          const fellows = guest.group_id
+          const groupMembers = guest.group_id
             ? (membersByGroupId.get(guest.group_id) ?? [])
-              .filter((member) => member.id !== guest.id)
-              .sort((a, b) => a.name.localeCompare(b.name))
+              .slice()
+              .sort((a, b) => Number(b.id === guest.id) - Number(a.id === guest.id) || a.name.localeCompare(b.name))
             : [];
           return (
             <article className="noteCard" key={guest.id}>
@@ -60,21 +60,22 @@ export default async function NotesPage() {
               </header>
               <p className="noteCardBody">{guest.notes}</p>
               {guest.group_id ? (
-                <div className="noteCardGroup">
-                  <p className="noteCardGroupName">{groupNameById[guest.group_id] ?? "Group"}</p>
-                  {fellows.length > 0 ? (
-                    <ul>
-                      {fellows.map((member) => (
-                        <li key={member.id}>
-                          <span>{member.name}</span>
-                          <span className={`statusLabel ${member.status}`}><i aria-hidden="true" />{statusLabel(member.status)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="noteCardGroupEmpty">No other members in this group.</p>
-                  )}
-                </div>
+                <details className="noteCardGroup">
+                  <summary>
+                    <span className="noteCardGroupName">{groupNameById[guest.group_id] ?? "Group"}</span>
+                    <span className="noteCardGroupMeta">
+                      {groupMembers.length} member{groupMembers.length === 1 ? "" : "s"}
+                    </span>
+                  </summary>
+                  <ul>
+                    {groupMembers.map((member) => (
+                      <li key={member.id}>
+                        <span>{member.name}</span>
+                        <span className={`statusLabel ${member.status}`}><i aria-hidden="true" />{statusLabel(member.status)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : null}
             </article>
           );

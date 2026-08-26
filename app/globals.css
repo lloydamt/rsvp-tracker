@@ -91,6 +91,16 @@ form label,legend { font-weight:700; font-size:.9rem; text-align:left; } input,t
 .adminNav a { padding:7px 14px; border-radius:999px; color:var(--muted); font-size:.8rem; font-weight:800; text-decoration:none; }
 .adminNav a:hover { color:var(--ink); }
 .adminNav a.active { background:#faf1ec; color:#843d2d; }
+.noteList { display:grid; gap:10px; margin-top:8px; }
+.noteCard { padding:18px 20px; border:1px solid var(--line); border-radius:16px; background:rgba(255,253,249,.94); box-shadow:0 5px 18px rgba(59,45,31,.04); }
+.noteCardHeader { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 14px; margin-bottom:12px; }
+.noteCardHeader strong { font-family:Georgia,serif; font-size:1.05rem; }
+.noteCardBody { margin:0; color:var(--ink); font-size:.95rem; line-height:1.55; white-space:pre-wrap; }
+.noteCardGroup { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.noteCardGroupName { margin:0 0 8px; color:var(--accent); font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.noteCardGroup ul { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.noteCardGroup li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:.85rem; }
+.noteCardGroupEmpty { margin:0; color:var(--muted); font-size:.82rem; }
 .findSearch { display:flex; align-items:end; gap:10px; margin-bottom:22px; }
 .findSearch label { flex:1; min-width:0; }
 .findSearch input { margin-top:7px; }

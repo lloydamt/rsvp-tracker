@@ -61,6 +61,18 @@ function createPreviewGuests(count: number): Guest[] {
 
 const sentFilters = ["sent", "unsent"] as const;
 
+function respondedAtMs(guest: Guest) {
+  return guest.responded_at ? Date.parse(guest.responded_at) : 0;
+}
+
+function byResponseRecency(a: Guest, b: Guest) {
+  return respondedAtMs(b) - respondedAtMs(a) || a.name.localeCompare(b.name);
+}
+
+function newestResponseMs(members: Guest[]) {
+  return members.reduce((latest, guest) => Math.max(latest, respondedAtMs(guest)), 0);
+}
+
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ status?: string; category?: string; sent?: string; preview?: string }> }) {
   const query = await searchParams;
   const isPreview = query.preview === "300";
@@ -107,16 +119,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     && (!activeCategory || guest.invitation_category === activeCategory)
     && (!activeSent || (activeSent === "sent" ? Boolean(guest.message_sent_at) : !guest.message_sent_at))
   ));
+  const sortByRecency = activeStatus === "attending" || activeStatus === "declined";
   const visibleGroups = groups
-    .map((group) => ({
-      ...group,
-      members: visibleGuests.filter((guest) => guest.group_id === group.id),
-    }))
+    .map((group) => {
+      const members = visibleGuests.filter((guest) => guest.group_id === group.id);
+      return {
+        ...group,
+        members: sortByRecency ? [...members].sort(byResponseRecency) : members,
+      };
+    })
     .filter((group) => group.members.length > 0)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+    .sort((a, b) => (
+      sortByRecency
+        ? newestResponseMs(b.members) - newestResponseMs(a.members) || a.name.localeCompare(b.name)
+        : a.sort_order - b.sort_order || a.name.localeCompare(b.name)
+    ));
   const ungroupedGuests = visibleGuests
     .filter((guest) => !guest.group_id)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+    .sort((a, b) => (
+      sortByRecency
+        ? byResponseRecency(a, b)
+        : a.sort_order - b.sort_order || a.name.localeCompare(b.name)
+    ));
   const smsViaGuests = smsViaOptions(guests);
   const guestsById = new Map(guests.map((guest) => [guest.id, guest]));
   const smsViaNameById = Object.fromEntries(guests.map((guest) => [guest.id, guest.name]));
@@ -194,7 +218,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div><h2>Guests</h2><span>{visibleGuests.length} shown</span></div>
         {filtersActive && (
           <div className="listHeadingMeta">
-            {!isPreview && <span className="reorderHint">Clear filters to rearrange the list.</span>}
+            {sortByRecency
+              ? <span className="reorderHint">Newest replies first.</span>
+              : !isPreview && <span className="reorderHint">Clear filters to rearrange the list.</span>}
             <Link href={filterHref({})}>Clear filters</Link>
           </div>
         )}

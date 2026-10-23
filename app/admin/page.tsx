@@ -216,12 +216,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <div className="listHeading">
         <div><h2>Guests</h2><span>{visibleGuests.length} shown</span></div>
-        {filtersActive && (
+        {(filtersActive || (!isPreview && counts.attending > 0)) && (
           <div className="listHeadingMeta">
-            {sortByRecency
+            {filtersActive && (sortByRecency
               ? <span className="reorderHint">Newest replies first.</span>
-              : !isPreview && <span className="reorderHint">Clear filters to rearrange the list.</span>}
-            <Link href={filterHref({})}>Clear filters</Link>
+              : !isPreview && <span className="reorderHint">Clear filters to rearrange the list.</span>)}
+            {filtersActive && <Link href={filterHref({})}>Clear filters</Link>}
+            {!isPreview && counts.attending > 0 && <a className="exportLink" href="/admin/export/attending">Download attending list (PDF)</a>}
           </div>
         )}
       </div>
